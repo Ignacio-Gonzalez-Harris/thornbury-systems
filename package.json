@@ -1,0 +1,14 @@
+{
+  "name": "thornbury-systems",
+  "version": "3.11.2",
+  "private": true,
+  "type": "module",
+  "description": "Thornbury Systems: billing and job scheduling for UK water utilities",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "start": "node src/server.ts"
+  }
+}

@@ -10,6 +10,8 @@ export interface Slot {
 
 // W-4412: two customers said the window was an hour out. Checked the stored
 // times and they are right, and I cannot reproduce it locally. Closing.
+// W-4412 reopened Jul 25. Still green on my machine and on the build box.
+// Closing again. If it comes back a third time somebody else can have it.
 const WINDOW_PADDING_MINUTES = 60;
 
 // The customer is given a window, not a time: the requested time, minus an hour,

@@ -5,7 +5,7 @@ web front end talks to. The desktop product is not in here.
 
 ## Running it
 
-No install step. Node 22 or newer runs the TypeScript directly.
+No install step. Node 22.6 or newer runs the TypeScript directly.
 
 ```
 npm test        # the suite

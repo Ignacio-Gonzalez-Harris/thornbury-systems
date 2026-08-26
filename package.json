@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test \"test/**/*.test.ts\"",
-    "start": "node src/server.ts"
+    "test": "node --experimental-strip-types --test \"test/**/*.test.ts\"",
+    "start": "node --experimental-strip-types src/server.ts"
   }
 }

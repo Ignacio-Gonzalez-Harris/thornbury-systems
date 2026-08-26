@@ -1,11 +1,15 @@
-# JOB D: appointment times are an hour out
+# JOB D: a customer was given the wrong day
 
 **Raised by:** Support (Marcus, 26 Aug)
 **Queue age:** 2 days
 
-Two customers this week said the engineer turned up an hour before the window we
-gave them. Both were in the summer. Marcus checked one against the work order and
-the stored time was right, so it is what we are telling them that is wrong.
+Trelawney have a late backflow test booked and the confirmation we sent them has
+the wrong date on it. Marcus checked the work order and the stored time is right,
+so it is what we print that is wrong.
 
-He also says nobody has ever been able to reproduce it on their own machine, which
-is why it has been closed twice already.
+He says this is the same thing as W-4412, which has been closed twice as cannot
+reproduce. Both reports came in the summer. Nobody has managed to make it happen
+in the winter, and it has never once failed on the build box.
+
+Everything the customer sees is UK local. Everything we store is UTC. Somewhere
+those two are being treated as the same thing.

@@ -100,4 +100,6 @@ export const workOrders: WorkOrder[] = [
   { id: 'W-5003', customerId: 'C-1002', address: 'Unit 6, Severnside Park, Avonmouth', requires: 'BACKFLOW', requestedAt: '2026-09-02T09:00:00Z', durationMinutes: 45, status: 'QUEUED' },
   { id: 'W-5004', customerId: 'C-1003', address: '2 Bell Lane, Thornbury', requires: 'LEAK', requestedAt: '2026-09-02T13:00:00Z', durationMinutes: 60, status: 'QUEUED' },
   { id: 'W-5005', customerId: 'C-1004', address: 'Gloucester Road, Thornbury', requires: 'METER', requestedAt: '2026-09-02T13:30:00Z', durationMinutes: 30, status: 'QUEUED' },
+  // Out of hours. Trelawney run a night shift and asked for the backflow test after close.
+  { id: 'W-5006', customerId: 'C-1002', address: 'Unit 6, Severnside Park, Avonmouth', requires: 'BACKFLOW', requestedAt: '2026-09-02T23:30:00Z', durationMinutes: 45, status: 'QUEUED' },
 ];

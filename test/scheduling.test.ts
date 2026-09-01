@@ -47,3 +47,47 @@ test('dispatch matches the required skill', () => {
   const backflow = plan.find((a) => a.workOrderId === 'W-5003');
   assert.equal(backflow?.engineerId, 'E-02');
 });
+
+// Regression for JOB-B: W-5001 '14 Ashfield Row, Bristol' and W-5002
+// '14 ashfield row, bristol' are the same house, both requested for the same
+// UK-local morning (2026-09-02). Only the first should get a van.
+test('dispatch sends only one van to the same address on the same day', () => {
+  const plan = dispatch(workOrders);
+  assert.ok(plan.some((a) => a.workOrderId === 'W-5001'));
+  assert.ok(!plan.some((a) => a.workOrderId === 'W-5002'));
+});
+
+test('address matching ignores case, spacing and punctuation', () => {
+  const orders = [
+    {
+      id: 'W-TEST-A',
+      customerId: 'C-1001',
+      address: '14  Ashfield Row, Bristol',
+      requires: 'METER',
+      requestedAt: '2026-09-02T08:00:00Z',
+      durationMinutes: 60,
+      status: 'QUEUED' as const,
+    },
+    {
+      id: 'W-TEST-B',
+      customerId: 'C-1001',
+      address: '14 ashfield row bristol',
+      requires: 'LEAK',
+      requestedAt: '2026-09-02T08:30:00Z',
+      durationMinutes: 90,
+      status: 'QUEUED' as const,
+    },
+  ];
+  const plan = dispatch(orders);
+  assert.ok(plan.some((a) => a.workOrderId === 'W-TEST-A'));
+  assert.ok(!plan.some((a) => a.workOrderId === 'W-TEST-B'));
+});
+
+// Negative case: genuinely different addresses on the same day both get
+// planned. W-5003 (Severnside Park) and W-5004 (Bell Lane) already prove
+// this in the seed data.
+test('dispatch plans distinct addresses on the same day independently', () => {
+  const plan = dispatch(workOrders);
+  assert.ok(plan.some((a) => a.workOrderId === 'W-5003'));
+  assert.ok(plan.some((a) => a.workOrderId === 'W-5004'));
+});

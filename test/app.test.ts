@@ -1,6 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { server } from '../src/server.ts';
+import { format } from '../src/shared/money.ts';
 
 // Server-level checks for the web UI serving and the invoices index the UI
 // relies on. Uses an ephemeral port so a running dev server is unaffected.
@@ -129,4 +130,155 @@ test('creating a work order validates input and appends to the queue', async () 
     body: '{not valid json',
   });
   assert.equal(badJson.status, 400);
+});
+
+test('creating a customer validates input and appends to the list', async () => {
+  const res = await fetch(`${await base}/customers`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Ada Fenwick',
+      address: '3 Cooperage Lane, Thornbury',
+      accountType: 'DOMESTIC',
+    }),
+  });
+  assert.equal(res.status, 201);
+  const created = (await res.json()) as { id: string; name: string; vatRegistered: boolean };
+  assert.match(created.id, /^C-\d+$/);
+  assert.equal(created.name, 'Ada Fenwick');
+  assert.equal(created.vatRegistered, false);
+
+  const listRes = await fetch(`${await base}/customers`);
+  const list = (await listRes.json()) as Array<{ id: string }>;
+  assert.ok(list.some((c) => c.id === created.id));
+
+  const badAccountType = await fetch(`${await base}/customers`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Bad Type Co', address: 'Somewhere', accountType: 'PERSONAL' }),
+  });
+  assert.equal(badAccountType.status, 400);
+
+  const emptyName = await fetch(`${await base}/customers`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: '', address: 'Somewhere', accountType: 'DOMESTIC' }),
+  });
+  assert.equal(emptyName.status, 400);
+});
+
+test('creating an invoice computes totals per the VAT policy and updates outstanding', async () => {
+  const customerRes = await fetch(`${await base}/customers`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Marlowe Bottling Ltd',
+      address: 'Unit 2, Riverside Trade Park, Thornbury',
+      accountType: 'COMMERCIAL',
+      vatRegistered: true,
+    }),
+  });
+  assert.equal(customerRes.status, 201);
+  const customer = (await customerRes.json()) as { id: string };
+
+  const supplyTotal = 10 * 200; // 2000
+  const serviceTotal = 2 * 5000; // 10000
+  const expectedNet = supplyTotal + serviceTotal;
+  const expectedVat = Math.round((serviceTotal * 20) / 100);
+  const expectedTotal = expectedNet + expectedVat;
+
+  const res = await fetch(`${await base}/invoices`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      customerId: customer.id,
+      lines: [
+        { description: 'Metered supply', quantity: 10, unitPence: 200, kind: 'SUPPLY' },
+        { description: 'Leak repair', quantity: 2, unitPence: 5000, kind: 'SERVICE' },
+      ],
+    }),
+  });
+  assert.equal(res.status, 201);
+  const created = (await res.json()) as {
+    id: string;
+    net: number;
+    vat: number;
+    total: number;
+    display: string;
+    paid: boolean;
+    source: string;
+  };
+  assert.match(created.id, /^INV-\d+$/);
+  assert.equal(created.net, expectedNet);
+  assert.equal(created.vat, expectedVat);
+  assert.equal(created.total, expectedTotal);
+  assert.equal(created.paid, false);
+  assert.equal(created.source, 'WEB');
+
+  const invoicesRes = await fetch(`${await base}/customers/${customer.id}/invoices`);
+  const invoicesList = (await invoicesRes.json()) as Array<{ id: string }>;
+  assert.ok(invoicesList.some((i) => i.id === created.id));
+
+  const customerAfter = await fetch(`${await base}/customers/${customer.id}`);
+  const customerBody = (await customerAfter.json()) as { outstanding: string };
+  assert.equal(customerBody.outstanding, format(expectedTotal));
+
+  const emptyLines = await fetch(`${await base}/invoices`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ customerId: customer.id, lines: [] }),
+  });
+  assert.equal(emptyLines.status, 400);
+
+  const badKind = await fetch(`${await base}/invoices`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      customerId: customer.id,
+      lines: [{ description: 'Mystery charge', quantity: 1, unitPence: 100, kind: 'OTHER' }],
+    }),
+  });
+  assert.equal(badKind.status, 400);
+});
+
+test('updating a customer applies name/address only and rejects other fields', async () => {
+  const createRes = await fetch(`${await base}/customers`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Original Name Ltd',
+      address: 'Old Address, Thornbury',
+      accountType: 'COMMERCIAL',
+    }),
+  });
+  const customer = (await createRes.json()) as { id: string };
+
+  const updateRes = await fetch(`${await base}/customers/${customer.id}/update`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address: 'New Address, Thornbury' }),
+  });
+  assert.equal(updateRes.status, 200);
+  const updated = (await updateRes.json()) as { address: string };
+  assert.equal(updated.address, 'New Address, Thornbury');
+
+  const getRes = await fetch(`${await base}/customers/${customer.id}`);
+  const fetched = (await getRes.json()) as { address: string };
+  assert.equal(fetched.address, 'New Address, Thornbury');
+
+  const badField = await fetch(`${await base}/customers/${customer.id}/update`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ vatRegistered: true }),
+  });
+  assert.equal(badField.status, 400);
+  const badFieldBody = (await badField.json()) as { error: string };
+  assert.equal(badFieldBody.error, 'only name and address can be updated');
+
+  const unknownId = await fetch(`${await base}/customers/C-9999/update`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address: 'Nowhere' }),
+  });
+  assert.equal(unknownId.status, 404);
 });

@@ -2,12 +2,13 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { customers, invoices, workOrders, type WorkOrder } from './db.ts';
+import { customers, invoices, workOrders, type Customer, type Invoice, type LineItem, type WorkOrder } from './db.ts';
 import { totalFor, outstandingFor } from './invoices/calc.ts';
 import { statementFor } from './invoices/statement.ts';
 import { dispatch } from './scheduling/dispatch.ts';
 import { slotsFor } from './scheduling/slots.ts';
 import { format } from './shared/money.ts';
+import { ukDateKey } from './shared/dates.ts';
 
 const PORT = Number(process.env.PORT ?? 4310);
 
@@ -129,6 +130,133 @@ async function handlePost(
     return json(res, 201, order);
   }
 
+  if (parts[0] === 'customers' && parts.length === 3 && parts[2] === 'update') {
+    const customer = customers.find((c) => c.id === parts[1]);
+    if (!customer) return json(res, 404, { error: 'no such customer' });
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      return json(res, 400, { error: 'invalid JSON' });
+    }
+
+    const allowedFields = new Set(['name', 'address']);
+    const unknownFields = Object.keys(body).filter((key) => !allowedFields.has(key));
+    if (unknownFields.length > 0) {
+      return json(res, 400, { error: 'only name and address can be updated' });
+    }
+
+    if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
+      return json(res, 400, { error: 'name must be a non-empty string' });
+    }
+
+    if (body.address !== undefined && (typeof body.address !== 'string' || body.address.trim() === '')) {
+      return json(res, 400, { error: 'address must be a non-empty string' });
+    }
+
+    if (typeof body.name === 'string') customer.name = body.name;
+    if (typeof body.address === 'string') customer.address = body.address;
+
+    return json(res, 200, customer);
+  }
+
+  if (parts[0] === 'customers' && parts.length === 1) {
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      return json(res, 400, { error: 'invalid JSON' });
+    }
+
+    if (typeof body.name !== 'string' || body.name.trim() === '') {
+      return json(res, 400, { error: 'name must be a non-empty string' });
+    }
+
+    if (typeof body.address !== 'string' || body.address.trim() === '') {
+      return json(res, 400, { error: 'address must be a non-empty string' });
+    }
+
+    if (body.accountType !== 'DOMESTIC' && body.accountType !== 'COMMERCIAL') {
+      return json(res, 400, { error: 'accountType must be DOMESTIC or COMMERCIAL' });
+    }
+
+    if (body.vatRegistered !== undefined && typeof body.vatRegistered !== 'boolean') {
+      return json(res, 400, { error: 'vatRegistered must be a boolean' });
+    }
+
+    const maxSuffix = customers.reduce((max, c) => {
+      const n = Number(c.id.slice('C-'.length));
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+
+    const customer: Customer = {
+      id: `C-${maxSuffix + 1}`,
+      name: body.name,
+      address: body.address,
+      accountType: body.accountType,
+      vatRegistered: body.vatRegistered === true,
+    };
+    customers.push(customer);
+    return json(res, 201, customer);
+  }
+
+  if (parts[0] === 'invoices' && parts.length === 1) {
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      return json(res, 400, { error: 'invalid JSON' });
+    }
+
+    const customer = customers.find((c) => c.id === body.customerId);
+    if (!customer) return json(res, 400, { error: 'no such customer' });
+
+    if (!Array.isArray(body.lines) || body.lines.length === 0) {
+      return json(res, 400, { error: 'lines must be a non-empty array' });
+    }
+
+    const lines: LineItem[] = [];
+    for (const raw of body.lines) {
+      const line = (raw ?? {}) as Record<string, unknown>;
+      if (typeof line.description !== 'string' || line.description.trim() === '') {
+        return json(res, 400, { error: 'each line needs a non-empty description' });
+      }
+      if (typeof line.quantity !== 'number' || !Number.isInteger(line.quantity) || line.quantity <= 0) {
+        return json(res, 400, { error: 'each line needs a positive integer quantity' });
+      }
+      if (typeof line.unitPence !== 'number' || !Number.isInteger(line.unitPence) || line.unitPence <= 0) {
+        return json(res, 400, { error: 'each line needs a positive integer unitPence' });
+      }
+      if (line.kind !== 'SUPPLY' && line.kind !== 'SERVICE') {
+        return json(res, 400, { error: 'each line kind must be SUPPLY or SERVICE' });
+      }
+      lines.push({
+        description: line.description,
+        quantity: line.quantity,
+        unitPence: line.unitPence,
+        kind: line.kind,
+      });
+    }
+
+    const maxSuffix = invoices.reduce((max, i) => {
+      const n = Number(i.id.slice('INV-'.length));
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+
+    const invoice: Invoice = {
+      id: `INV-${maxSuffix + 1}`,
+      customerId: customer.id,
+      issued: ukDateKey(new Date()),
+      lines,
+      source: 'WEB',
+      paid: false,
+    };
+    invoices.push(invoice);
+    const totals = totalFor(invoice);
+    return json(res, 201, { ...invoice, ...totals, display: format(totals.total) });
+  }
+
   return json(res, 404, { error: 'no such route', path: url.pathname });
 }
 
@@ -152,10 +280,13 @@ export const server = createServer((req, res) => {
       routes: [
         'GET /app (web UI)',
         'GET /customers',
+        'POST /customers',
         'GET /customers/:id',
+        'POST /customers/:id/update',
         'GET /customers/:id/invoices',
         'GET /customers/:id/statement',
         'GET /invoices',
+        'POST /invoices',
         'GET /invoices/:id',
         'POST /invoices/:id/pay',
         'GET /work-orders',

@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Thornbury Systems</title>
+<style>
+  :root{
+    --paper: #f4efe2;
+    --paper-card: #fbf8f0;
+    --paper-card-edge: #e9e0c9;
+    --ink: #2a241d;
+    --ink-soft: #5a5142;
+    --ink-faint: #8a806c;
+    --rule: rgba(42,36,29,0.18);
+    --rule-strong: rgba(42,36,29,0.38);
+    --accent: #6e1423;
+    --accent-soft: #8a2233;
+    --accent-tint: #f4e4e2;
+    --good: #245c3a;
+    --good-tint: #e3ebe0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(180deg, rgba(42,36,29,0.015) 0px, rgba(42,36,29,0.015) 1px, transparent 1px, transparent 34px),
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.5), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    min-width:360px;
+  }
+  h1,h2,h3,.serif{
+    font-family: Cambria, Georgia, "Times New Roman", "Liberation Serif", serif;
+  }
+  .num, .money, td.num, th.num{
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .money{ white-space:nowrap; }
+  a{ color:var(--accent); }
+
+  /* ---------- masthead / nav ---------- */
+  .masthead{
+    background:var(--paper-card);
+    border-bottom:3px double var(--rule-strong);
+  }
+  .masthead-inner{
+    max-width:1100px;
+    margin:0 auto;
+    padding:22px 28px 0 28px;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+  }
+  .brand-name{
+    font-size:28px;
+    font-weight:700;
+    letter-spacing:.01em;
+    color:var(--ink);
+  }
+  .brand-tagline{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    margin-top:2px;
+  }
+  .brand-version{
+    font-size:11px;
+    color:var(--ink-faint);
+    letter-spacing:.05em;
+    margin-top:2px;
+  }
+  .tabs{
+    display:flex;
+    gap:2px;
+    margin-bottom:-3px;
+  }
+  .tab{
+    font-family: Cambria, Georgia, "Times New Roman", serif;
+    background:var(--paper);
+    border:1px solid var(--rule-strong);
+    border-bottom:none;
+    color:var(--ink-soft);
+    padding:9px 20px 10px 20px;
+    font-size:14.5px;
+    cursor:pointer;
+    border-radius:5px 5px 0 0;
+    position:relative;
+    top:1px;
+  }
+  .tab:hover{ color:var(--ink); background:#efe8d6; }
+  .tab.active{
+    background:var(--paper-card);
+    color:var(--accent);
+    font-weight:700;
+    border-color:var(--rule-strong);
+    border-bottom:3px solid var(--paper-card);
+  }
+
+  /* ---------- layout ---------- */
+  .content{
+    max-width:1100px;
+    margin:0 auto;
+    padding:30px 28px 70px 28px;
+  }
+  .crumb{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:14px;
+  }
+  .crumb button{
+    background:none;border:none;padding:0;
+    color:var(--accent);
+    font-size:13px;cursor:pointer;
+    text-decoration:underline;
+    font-family:inherit;
+  }
+  .page-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:8px;
+    border-bottom:1px solid var(--rule);
+    padding-bottom:10px;
+    margin-bottom:22px;
+  }
+  .page-head h1{
+    font-size:23px;
+    margin:0;
+  }
+  .page-head .sub{
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  /* ---------- generic ledger sheet/card ---------- */
+  .sheet{
+    background:var(--paper-card);
+    border:1px solid var(--paper-card-edge);
+    box-shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 22px rgba(42,36,29,.05);
+    padding:26px 30px;
+    margin-bottom:24px;
+  }
+  .sheet-title{
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    margin:0 0 14px 0;
+    border-bottom:1px solid var(--rule);
+    padding-bottom:8px;
+  }
+
+  /* ---------- ledger tables ---------- */
+  .table-scroll{ overflow-x:auto; }
+  table.ledger{
+    width:100%;
+    border-collapse:collapse;
+  }
+  table.ledger th{
+    text-align:left;
+    font-size:11.5px;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    font-weight:600;
+    padding:0 10px 8px 10px;
+    border-bottom:1px solid var(--rule-strong);
+  }
+  table.ledger th.num, table.ledger td.num{ text-align:right; }
+  table.ledger td{
+    padding:10px 10px;
+    border-bottom:1px solid var(--rule);
+    vertical-align:top;
+  }
+  table.ledger tbody tr:last-child td{ border-bottom:1px solid var(--rule-strong); }
+  table.ledger tr.clickable{ cursor:pointer; }
+  table.ledger tr.clickable:hover td{ background:var(--accent-tint); }
+  table.ledger td.id, table.ledger th.id{ font-variant-numeric: tabular-nums; color:var(--ink-soft); }
+
+  .row-total td{
+    border-top:1px solid var(--rule-strong);
+    border-bottom:none !important;
+    padding-top:12px;
+    font-weight:600;
+  }
+  .row-grand td{
+    border-bottom:3px double var(--ink) !important;
+    padding-bottom:14px;
+    font-weight:700;
+    font-size:16px;
+  }
+  .row-grand td.num{ color:var(--accent); }
+
+  .status{
+    display:inline-block;
+    font-family:Cambria, Georgia, serif;
+    font-size:11px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    padding:2px 8px;
+    border:1px solid currentColor;
+    border-radius:2px;
+  }
+  .status.paid{ color:var(--good); }
+  .status.unpaid{ color:var(--accent); }
+
+  /* ---------- loading / error ---------- */
+  .loading-msg{
+    color:var(--ink-faint);
+    font-style:italic;
+    padding:20px 4px;
+  }
+  .error-msg{
+    color:var(--accent);
+    background:var(--accent-tint);
+    border:1px dashed var(--rule-strong);
+    padding:18px 20px;
+    font-size:14px;
+  }
+
+  /* ---------- overview screen ---------- */
+  .summary-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 40px;
+  }
+  .summary-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:11px 0;
+    border-bottom:1px solid var(--rule);
+  }
+  .summary-row .label{ color:var(--ink-soft); font-size:14px; }
+  .summary-row .value{ font-size:17px; font-weight:600; }
+  .summary-row.grand{
+    border-bottom:3px double var(--ink);
+    padding-bottom:14px;
+  }
+  .summary-row.grand .value{ font-size:24px; color:var(--accent); font-family:Cambria, Georgia, serif; }
+  @media (max-width:760px){ .summary-grid{ grid-template-columns:1fr; } }
+
+  /* ---------- customer / statement ---------- */
+  .cust-header{
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:20px;
+    margin-bottom:6px;
+  }
+  .cust-name{ font-size:20px; font-weight:700; }
+  .cust-meta{ color:var(--ink-soft); font-size:13.5px; margin-top:3px; }
+  .badge-type{
+    display:inline-block;
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    border:1px solid var(--rule-strong);
+    padding:1px 7px;
+    border-radius:2px;
+    margin-left:8px;
+    vertical-align:1px;
+  }
+  .outstanding-box{ text-align:right; }
+  .outstanding-box .label{
+    font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);
+  }
+  .outstanding-box .amt{
+    font-family:Cambria, Georgia, serif;
+    font-size:26px;
+    font-weight:700;
+    color:var(--accent);
+  }
+  .outstanding-box .amt.zero{ color:var(--good); }
+
+  /* ---------- printable document (statement / invoice) ---------- */
+  .document{
+    background:var(--paper-card);
+    border:1px solid var(--paper-card-edge);
+    box-shadow:0 1px 2px rgba(0,0,0,.04), 0 10px 26px rgba(42,36,29,.07);
+    max-width:760px;
+    margin:0 auto;
+    padding:0;
+    position:relative;
+    overflow:hidden;
+  }
+  .letterhead{
+    padding:26px 34px 18px 34px;
+    border-bottom:3px double var(--ink);
+    display:flex;
+    justify-content:space-between;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .letterhead .co-name{
+    font-family:Cambria, Georgia, serif;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  .letterhead .co-detail{ font-size:11.5px; color:var(--ink-soft); line-height:1.55; margin-top:4px; }
+  .letterhead .doc-type{
+    text-align:right;
+    font-family:Cambria, Georgia, serif;
+    font-size:19px;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+  .letterhead .doc-meta{ font-size:12.5px; color:var(--ink-soft); text-align:right; margin-top:6px; line-height:1.6; }
+  .doc-body{ padding:22px 34px 30px 34px; }
+  .doc-parties{
+    display:flex;
+    justify-content:space-between;
+    gap:24px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+    font-size:13.5px;
+  }
+  .doc-parties .to-label{
+    font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+    margin-bottom:4px;
+  }
+  .doc-parties .to-name{ font-weight:700; }
+  .doc-parties address{ font-style:normal; color:var(--ink-soft); line-height:1.5; }
+
+  .stamp{
+    position:absolute;
+    top:148px;
+    right:50px;
+    transform:rotate(-11deg);
+    background:rgba(251,248,240,0.92);
+    border:3px solid;
+    border-radius:6px;
+    padding:5px 14px;
+    font-family:Cambria, Georgia, serif;
+    font-size:19px;
+    font-weight:700;
+    letter-spacing:.12em;
+    opacity:.85;
+    pointer-events:none;
+    z-index:2;
+  }
+  .stamp.is-paid{ color:var(--good); border-color:var(--good); }
+  .stamp.is-unpaid{ color:var(--accent); border-color:var(--accent); }
+
+  .vat-note{
+    margin-top:18px;
+    font-size:12px;
+    color:var(--ink-soft);
+    font-style:italic;
+    border-top:1px solid var(--rule);
+    padding-top:12px;
+  }
+  .doc-foot{
+    font-size:11.5px;
+    color:var(--ink-faint);
+    text-align:center;
+    padding:14px 20px 22px 20px;
+    border-top:1px solid var(--rule);
+  }
+
+  /* ---------- schedule ---------- */
+  .day-label{
+    font-family:Cambria, Georgia, serif;
+    font-size:15px;
+    font-weight:700;
+    margin:0 0 12px 0;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--rule-strong);
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .day-label .count{ font-size:12px; font-weight:400; color:var(--ink-soft); text-transform:none; letter-spacing:0; }
+  .slot-row{
+    display:flex;
+    gap:18px;
+    align-items:flex-start;
+    padding:12px 4px;
+    border-bottom:1px solid var(--rule);
+  }
+  .slot-row.not-dispatched{ opacity:.68; }
+  .slot-window{
+    width:150px;
+    flex:0 0 auto;
+    font-variant-numeric: tabular-nums;
+    font-weight:700;
+    font-family:Cambria, Georgia, serif;
+    color:var(--ink);
+  }
+  .slot-window .lbl{ display:block; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); font-weight:400; font-family:inherit; margin-top:2px; }
+  .slot-main{ flex:1 1 auto; }
+  .slot-wo{ font-weight:700; }
+  .slot-addr{ color:var(--ink-soft); font-size:13px; }
+  .slot-flag{
+    font-size:11px;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:700;
+  }
+  .footnote{
+    margin-top:16px;
+    padding-top:12px;
+    border-top:1px solid var(--rule);
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+  .footnote b{ color:var(--accent); font-style:normal; }
+
+  .app-footer{
+    text-align:center;
+    color:var(--ink-faint);
+    font-size:11.5px;
+    padding:30px 20px 40px 20px;
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div>
+      <div class="brand-name">Thornbury Systems</div>
+      <div class="brand-tagline">Billing &amp; Job Scheduling for Water Utilities</div>
+      <div class="brand-version" id="versionTag"></div>
+    </div>
+    <nav class="tabs" id="mainNav">
+      <button class="tab" data-section="overview">Overview</button>
+      <button class="tab" data-section="customers">Customers</button>
+      <button class="tab" data-section="invoices">Invoices</button>
+      <button class="tab" data-section="schedule">Schedule</button>
+    </nav>
+  </div>
+</header>
+
+<main class="content" id="content"></main>
+
+<footer class="app-footer">Thornbury Systems &middot; billing &amp; job scheduling for water utilities</footer>
+
+<script>
+(function(){
+
+  var VAT_NOTE = 'VAT: 20% on engineer services, water supply zero-rated &mdash; policy pending Finance confirmation.';
+
+  function ApiError(message){
+    this.message = message;
+    this.name = 'ApiError';
+  }
+  ApiError.prototype = Object.create(Error.prototype);
+
+  async function fetchJSON(path){
+    var res;
+    try {
+      res = await fetch(path, { headers: { 'Accept': 'application/json' } });
+    } catch (networkErr) {
+      throw new ApiError('The Thornbury API is not responding — is the app running?');
+    }
+    if (res.status === 404) {
+      var body = null;
+      try { body = await res.json(); } catch (e) { /* ignore parse failure on error body */ }
+      throw new ApiError((body && body.error) ? body.error : 'Not found.');
+    }
+    if (!res.ok) {
+      throw new ApiError('The Thornbury API is not responding — is the app running?');
+    }
+    try {
+      return await res.json();
+    } catch (parseErr) {
+      throw new ApiError('The Thornbury API returned something unexpected.');
+    }
+  }
+
+  function byId(list, id){ for (var i=0;i<list.length;i++){ if (list[i].id===id) return list[i]; } return null; }
+
+  // Mirrors the server's shared/money.ts format(): integer maths only, no floats.
+  function money(pence){
+    var negative = pence < 0;
+    var abs = Math.abs(pence);
+    var whole = Math.floor(abs/100);
+    var part = abs%100;
+    return (negative?'-':'') + '£' + whole.toLocaleString('en-GB') + '.' + String(part).padStart(2,'0');
+  }
+
+  function dateLong(iso){
+    var d = new Date(iso+'T00:00:00');
+    var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  function dateShort(iso){
+    var d = new Date(iso+'T00:00:00');
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  // Today's date on the UK calendar (Europe/London), as YYYY-MM-DD.
+  function ukToday(){
+    return new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/London' }).format(new Date());
+  }
+  var UK_DATETIME = new Intl.DateTimeFormat('en-GB', {
+    timeZone:'Europe/London', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+  });
+  function formatDateTimeUK(iso){ return UK_DATETIME.format(new Date(iso)); }
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // Light address normalisation, used only to explain (not decide) a
+  // not-dispatched work order in the schedule footnote.
+  function normalizeAddr(address){
+    return String(address).toLowerCase().replace(/[,.]/g,'').trim().replace(/\s+/g,' ');
+  }
+
+  var state = { section:'overview', customerId:null, invoiceId:null, _backToCustomer:null };
+
+  function setSection(section){
+    state.section = section;
+    state.customerId = null;
+    state.invoiceId = null;
+    render();
+  }
+  function openCustomer(id){ state.section='customers'; state.customerId=id; state.invoiceId=null; render(); }
+  function openInvoice(id, fromCustomer){ state.invoiceId=id; state.section='invoices'; state._backToCustomer = fromCustomer || null; render(); }
+
+  function errorBlock(err){
+    var msg = (err && err.message) ? err.message : 'Something went wrong.';
+    return '<div class="sheet"><div class="error-msg">'+esc(msg)+'</div></div>';
+  }
+
+  var renderToken = 0;
+  async function render(){
+    document.querySelectorAll('.tab').forEach(function(t){
+      t.classList.toggle('active', t.getAttribute('data-section')===state.section);
+    });
+    var myToken = ++renderToken;
+    var el = document.getElementById('content');
+    el.innerHTML = '<div class="loading-msg">Loading&hellip;</div>';
+    var html;
+    try {
+      if (state.section==='overview') html = await renderOverview();
+      else if (state.section==='customers') html = state.customerId ? await renderCustomerDetail(state.customerId) : await renderCustomerIndex();
+      else if (state.section==='invoices') html = state.invoiceId ? await renderInvoiceDetail(state.invoiceId) : await renderInvoiceIndex();
+      else if (state.section==='schedule') html = await renderSchedule();
+      else html = '';
+    } catch (err) {
+      if (myToken !== renderToken) return;
+      el.innerHTML = errorBlock(err);
+      return;
+    }
+    if (myToken !== renderToken) return; // superseded by a newer navigation
+    el.innerHTML = html;
+    wireRows();
+    window.scrollTo(0,0);
+  }
+
+  function wireRows(){
+    document.querySelectorAll('[data-open-customer]').forEach(function(r){
+      r.addEventListener('click', function(){ openCustomer(r.getAttribute('data-open-customer')); });
+    });
+    document.querySelectorAll('[data-open-invoice]').forEach(function(r){
+      r.addEventListener('click', function(){ openInvoice(r.getAttribute('data-open-invoice'), r.getAttribute('data-from-customer')); });
+    });
+    document.querySelectorAll('[data-back]').forEach(function(r){
+      r.addEventListener('click', function(){
+        var target = r.getAttribute('data-back');
+        if (target==='customers'){ state.customerId=null; state.invoiceId=null; render(); }
+        else if (target==='invoices'){ state.invoiceId=null; render(); }
+        else if (target==='customer'){ state.invoiceId=null; state.section='customers'; state.customerId=state._backToCustomer; render(); }
+      });
+    });
+  }
+
+  /* ---------------- OVERVIEW ---------------- */
+  async function renderOverview(){
+    var results = await Promise.all([
+      fetchJSON('/customers'), fetchJSON('/invoices'), fetchJSON('/work-orders'), fetchJSON('/dispatch')
+    ]);
+    var customers = results[0], invoices = results[1], workOrders = results[2], dispatchList = results[3];
+
+    var outstandingByCustomer = {};
+    invoices.forEach(function(inv){
+      if (!inv.paid) outstandingByCustomer[inv.customerId] = (outstandingByCustomer[inv.customerId]||0) + inv.total;
+    });
+    var totalOutstanding = 0;
+    Object.keys(outstandingByCustomer).forEach(function(k){ totalOutstanding += outstandingByCustomer[k]; });
+    var arrears = customers.filter(function(c){ return (outstandingByCustomer[c.id]||0) > 0; });
+    var openWorkOrders = workOrders.filter(function(w){ return w.status !== 'DONE'; }).length;
+    var visitsPlanned = dispatchList.length;
+
+    var arrearsRows = arrears.map(function(c){
+      return '<tr class="clickable" data-open-customer="'+esc(c.id)+'">'
+        + '<td class="id">'+esc(c.id)+'</td>'
+        + '<td>'+esc(c.name)+'</td>'
+        + '<td class="num money">'+money(outstandingByCustomer[c.id]||0)+'</td>'
+        + '</tr>';
+    }).join('');
+
+    return ''
+      + '<div class="page-head"><h1>Ledger Summary</h1><div class="sub">As at ' + dateLong(ukToday()) + '</div></div>'
+      + '<div class="sheet">'
+        + '<div class="sheet-title">Position at a glance</div>'
+        + '<div class="summary-grid">'
+          + '<div>'
+            + '<div class="summary-row"><span class="label">Accounts on ledger</span><span class="value num">'+customers.length+'</span></div>'
+            + '<div class="summary-row"><span class="label">Open work orders</span><span class="value num">'+openWorkOrders+'</span></div>'
+          + '</div>'
+          + '<div>'
+            + '<div class="summary-row"><span class="label">Visits planned (dispatched)</span><span class="value num">'+visitsPlanned+'</span></div>'
+            + '<div class="summary-row"><span class="label">Accounts in arrears</span><span class="value num">'+arrears.length+'</span></div>'
+          + '</div>'
+        + '</div>'
+        + '<div class="summary-row grand" style="margin-top:8px;"><span class="label">Total outstanding across all accounts</span><span class="value money">'+money(totalOutstanding)+'</span></div>'
+      + '</div>'
+      + '<div class="sheet">'
+        + '<div class="sheet-title">Accounts requiring attention</div>'
+        + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Account</th><th>Name</th><th class="num">Outstanding</th></tr></thead>'
+        + '<tbody>' + (arrearsRows || '<tr><td colspan="3" style="color:var(--ink-faint);">No accounts in arrears.</td></tr>') + '</tbody></table></div>'
+      + '</div>';
+  }
+
+  /* ---------------- CUSTOMERS ---------------- */
+  async function renderCustomerIndex(){
+    var results = await Promise.all([fetchJSON('/customers'), fetchJSON('/invoices')]);
+    var customers = results[0], invoices = results[1];
+    var outstandingByCustomer = {};
+    invoices.forEach(function(inv){
+      if (!inv.paid) outstandingByCustomer[inv.customerId] = (outstandingByCustomer[inv.customerId]||0) + inv.total;
+    });
+    var rows = customers.map(function(c){
+      return '<tr class="clickable" data-open-customer="'+esc(c.id)+'">'
+        + '<td class="id">'+esc(c.id)+'</td>'
+        + '<td>'+esc(c.name)+'</td>'
+        + '<td>'+esc(c.address)+'</td>'
+        + '<td>'+esc(c.accountType)+'</td>'
+        + '<td class="num money">'+money(outstandingByCustomer[c.id]||0)+'</td>'
+        + '</tr>';
+    }).join('');
+    return ''
+      + '<div class="page-head"><h1>Customer Ledger Index</h1><div class="sub">' + customers.length + ' accounts</div></div>'
+      + '<div class="sheet">'
+        + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Account</th><th>Name</th><th>Address</th><th>Type</th><th class="num">Outstanding</th></tr></thead>'
+        + '<tbody>' + rows + '</tbody></table></div>'
+      + '</div>';
+  }
+
+  async function renderCustomerDetail(id){
+    var results = await Promise.all([
+      fetchJSON('/customers/'+encodeURIComponent(id)),
+      fetchJSON('/invoices'),
+      fetchJSON('/customers/'+encodeURIComponent(id)+'/statement')
+    ]);
+    var customer = results[0], invoicesAll = results[1], statement = results[2];
+
+    var invs = invoicesAll.filter(function(i){ return i.customerId === id; });
+    var invRows = invs.map(function(inv){
+      return '<tr class="clickable" data-open-invoice="'+esc(inv.id)+'" data-from-customer="'+esc(id)+'">'
+        + '<td class="id">'+esc(inv.id)+'</td>'
+        + '<td>'+dateShort(inv.issued)+'</td>'
+        + '<td><span class="status '+(inv.paid?'paid':'unpaid')+'">'+(inv.paid?'PAID':'UNPAID')+'</span></td>'
+        + '<td class="num money">'+esc(inv.display)+'</td>'
+        + '</tr>';
+    }).join('');
+
+    var stmtRows = statement.lines.map(function(l){
+      return '<tr>'
+        + '<td class="id">'+esc(l.invoiceId)+'</td>'
+        + '<td>'+dateShort(l.issued)+'</td>'
+        + '<td class="num money">'+money(l.net)+'</td>'
+        + '<td class="num money">'+money(l.vat)+'</td>'
+        + '<td class="num money">'+money(l.total)+'</td>'
+        + '<td class="num money">'+money(l.paid?l.total:0)+'</td>'
+        + '</tr>';
+    }).join('');
+    var totalPaid = statement.lines.filter(function(l){ return l.paid; }).reduce(function(s,l){ return s+l.total; }, 0);
+    var outstandingZero = statement.totals.outstanding === 0;
+
+    return ''
+      + '<div class="crumb"><button data-back="customers">&larr; Back to customer index</button></div>'
+      + '<div class="sheet">'
+        + '<div class="cust-header">'
+          + '<div>'
+            + '<div class="cust-name">'+esc(customer.name)+' <span class="badge-type">'+esc(customer.accountType)+'</span></div>'
+            + '<div class="cust-meta">Account ' + esc(customer.id) + ' &middot; ' + esc(customer.address) + '</div>'
+          + '</div>'
+          + '<div class="outstanding-box">'
+            + '<div class="label">Outstanding</div>'
+            + '<div class="amt'+(outstandingZero?' zero':'')+'">'+esc(customer.outstanding)+'</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div class="sheet">'
+        + '<div class="sheet-title">Invoices on this account</div>'
+        + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Invoice</th><th>Issued</th><th>Status</th><th class="num">Total</th></tr></thead>'
+        + '<tbody>' + (invRows || '<tr><td colspan="4" style="color:var(--ink-faint);">No invoices on this account.</td></tr>') + '</tbody></table></div>'
+      + '</div>'
+      + '<div class="sheet-title" style="max-width:760px;margin:0 auto 12px auto;">Statement of account</div>'
+      + '<div class="document">'
+        + '<div class="letterhead">'
+          + '<div>'
+            + '<div class="co-name">Thornbury Systems</div>'
+            + '<div class="co-detail">Unit 3 Waterside Court, Thornbury, South Gloucestershire BS35 2AA<br>Water &amp; Wastewater Services &middot; billing@thornburysystems.example</div>'
+          + '</div>'
+          + '<div>'
+            + '<div class="doc-type">Statement</div>'
+            + '<div class="doc-meta">As at ' + dateShort(ukToday()) + '<br>Account ' + esc(customer.id) + '</div>'
+          + '</div>'
+        + '</div>'
+        + '<div class="doc-body">'
+          + '<div class="doc-parties">'
+            + '<div><div class="to-label">Account holder</div><div class="to-name">'+esc(customer.name)+'</div><address>'+esc(customer.address)+'</address></div>'
+          + '</div>'
+          + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Invoice</th><th>Issued</th><th class="num">Net</th><th class="num">VAT</th><th class="num">Total</th><th class="num">Paid</th></tr></thead>'
+          + '<tbody>'
+            + stmtRows
+            + '<tr class="row-total"><td colspan="4"></td><td class="num money">'+esc(statement.display.total)+'</td><td class="num money">'+money(totalPaid)+'</td></tr>'
+            + '<tr class="row-grand"><td colspan="5">Amount outstanding</td><td class="num money">'+esc(statement.display.outstanding)+'</td></tr>'
+          + '</tbody></table></div>'
+          + '<div class="vat-note">' + VAT_NOTE + '</div>'
+        + '</div>'
+        + '<div class="doc-foot">Please make payment within 14 days of this statement. Queries: 01454 000 000.</div>'
+      + '</div>';
+  }
+
+  /* ---------------- INVOICES ---------------- */
+  async function renderInvoiceIndex(){
+    var results = await Promise.all([fetchJSON('/invoices'), fetchJSON('/customers')]);
+    var invoices = results[0], customers = results[1];
+    var customerName = {};
+    customers.forEach(function(c){ customerName[c.id] = c.name; });
+    var rows = invoices.map(function(inv){
+      var name = customerName[inv.customerId] || inv.customerId;
+      return '<tr class="clickable" data-open-invoice="'+esc(inv.id)+'">'
+        + '<td class="id">'+esc(inv.id)+'</td>'
+        + '<td>'+esc(name)+'</td>'
+        + '<td>'+dateShort(inv.issued)+'</td>'
+        + '<td class="num money">'+money(inv.net)+'</td>'
+        + '<td class="num money">'+money(inv.vat)+'</td>'
+        + '<td class="num money">'+esc(inv.display)+'</td>'
+        + '<td><span class="status '+(inv.paid?'paid':'unpaid')+'">'+(inv.paid?'PAID':'UNPAID')+'</span></td>'
+        + '</tr>';
+    }).join('');
+    return ''
+      + '<div class="page-head"><h1>Invoice Register</h1><div class="sub">' + invoices.length + ' invoices</div></div>'
+      + '<div class="sheet">'
+        + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Invoice</th><th>Customer</th><th>Issued</th><th class="num">Net</th><th class="num">VAT</th><th class="num">Total</th><th>Status</th></tr></thead>'
+        + '<tbody>' + rows + '</tbody></table></div>'
+      + '</div>';
+  }
+
+  async function renderInvoiceDetail(id){
+    var invoice = await fetchJSON('/invoices/'+encodeURIComponent(id));
+    var customer = await fetchJSON('/customers/'+encodeURIComponent(invoice.customerId));
+
+    var lineRows = invoice.lines.map(function(l){
+      return '<tr>'
+        + '<td>'+esc(l.description)+'</td>'
+        + '<td class="num">'+l.quantity+'</td>'
+        + '<td class="num money">'+money(l.unitPence)+'</td>'
+        + '<td>'+esc(l.kind)+'</td>'
+        + '<td class="num money">'+money(l.quantity*l.unitPence)+'</td>'
+        + '</tr>';
+    }).join('');
+
+    var statusText = invoice.paid ? 'PAID' : 'UNPAID';
+    var backBtn = state._backToCustomer
+      ? '<button data-back="customer">&larr; Back to ' + esc(customer.name) + '</button>'
+      : '<button data-back="invoices">&larr; Back to invoice register</button>';
+
+    return ''
+      + '<div class="crumb">' + backBtn + '</div>'
+      + '<div class="document">'
+        + '<div class="stamp ' + (invoice.paid?'is-paid':'is-unpaid') + '">' + statusText + '</div>'
+        + '<div class="letterhead">'
+          + '<div>'
+            + '<div class="co-name">Thornbury Systems</div>'
+            + '<div class="co-detail">Unit 3 Waterside Court, Thornbury, South Gloucestershire BS35 2AA<br>Water &amp; Wastewater Services &middot; billing@thornburysystems.example</div>'
+          + '</div>'
+          + '<div>'
+            + '<div class="doc-type">Invoice</div>'
+            + '<div class="doc-meta">' + esc(invoice.id) + '<br>Issued ' + dateShort(invoice.issued) + '<br>Account ' + esc(customer.id) + ' &middot; ' + esc(customer.accountType) + '</div>'
+          + '</div>'
+        + '</div>'
+        + '<div class="doc-body">'
+          + '<div class="doc-parties">'
+            + '<div><div class="to-label">Bill to</div><div class="to-name">'+esc(customer.name)+'</div><address>'+esc(customer.address)+'</address></div>'
+          + '</div>'
+          + '<div class="table-scroll"><table class="ledger"><thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Kind</th><th class="num">Line net</th></tr></thead>'
+          + '<tbody>'
+            + lineRows
+            + '<tr class="row-total"><td colspan="4">Net</td><td class="num money">'+money(invoice.net)+'</td></tr>'
+            + '<tr><td colspan="4">VAT</td><td class="num money">'+money(invoice.vat)+'</td></tr>'
+            + '<tr class="row-grand"><td colspan="4">Total due</td><td class="num money">'+esc(invoice.display)+'</td></tr>'
+          + '</tbody></table></div>'
+          + '<div class="vat-note">' + VAT_NOTE + '</div>'
+        + '</div>'
+        + '<div class="doc-foot">Please make payment within 14 days of the issue date. Queries: 01454 000 000.</div>'
+      + '</div>';
+  }
+
+  /* ---------------- SCHEDULE ---------------- */
+  async function renderSchedule(){
+    var results = await Promise.all([
+      fetchJSON('/work-orders'), fetchJSON('/slots'), fetchJSON('/dispatch'), fetchJSON('/customers')
+    ]);
+    var workOrders = results[0], slots = results[1], dispatchList = results[2], customers = results[3];
+
+    var slotByWO = {};
+    slots.forEach(function(s){ slotByWO[s.workOrderId] = s; });
+    var dispatchByWO = {};
+    dispatchList.forEach(function(a){ dispatchByWO[a.workOrderId] = a; });
+    var customerName = {};
+    customers.forEach(function(c){ customerName[c.id] = c.name; });
+
+    function isOvernight(window){
+      var parts = String(window).split(' to ');
+      if (parts.length !== 2) return false;
+      return parts[1] < parts[0];
+    }
+
+    var groups = {};
+    workOrders.forEach(function(w){
+      var slot = slotByWO[w.id];
+      var date = slot ? slot.date : 'unscheduled';
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(w);
+    });
+    var dates = Object.keys(groups).sort();
+
+    // Best-effort, computed explanation for a not-dispatched work order —
+    // not the decision itself, which /dispatch has already made.
+    function reasonFor(w){
+      var slot = slotByWO[w.id];
+      var norm = normalizeAddr(w.address);
+      var match = dispatchList.find(function(a){
+        if (a.workOrderId === w.id) return false;
+        var otherSlot = slotByWO[a.workOrderId];
+        return normalizeAddr(a.address) === norm && slot && otherSlot && otherSlot.date === slot.date;
+      });
+      if (match) return 'duplicate address, same day as ' + esc(match.workOrderId);
+      return 'no engineer or slot available';
+    }
+
+    function slotRowHtml(w){
+      var slot = slotByWO[w.id];
+      var dispatched = !!dispatchByWO[w.id];
+      var notDispatched = w.status === 'QUEUED' && !dispatched;
+      var overnightFlag = slot && isOvernight(slot.window);
+      var engineerCell = dispatched ? esc(dispatchByWO[w.id].engineerId) : 'Not dispatched';
+      var flag = notDispatched ? '<div class="slot-flag">Not dispatched</div>' : '';
+      return '<div class="slot-row'+(dispatched?'':' not-dispatched')+'">'
+        + '<div class="slot-window">' + (slot ? esc(slot.window) : '&mdash;') + (overnightFlag ? ' <span style="font-weight:400;">(overnight)</span>' : '') + '<span class="lbl">customer window</span></div>'
+        + '<div class="slot-main">'
+          + '<div class="slot-wo">' + esc(w.id) + ' &middot; ' + esc(customerName[w.customerId] || w.customerId) + '</div>'
+          + '<div class="slot-addr">' + esc(w.address) + '</div>'
+        + '</div>'
+        + '<div style="text-align:right;min-width:150px;">' + engineerCell + flag + '</div>'
+      + '</div>';
+    }
+
+    var daySheets = dates.map(function(date){
+      var list = groups[date].slice().sort(function(a,b){
+        var sa = slotByWO[a.id] ? slotByWO[a.id].window : '';
+        var sb = slotByWO[b.id] ? slotByWO[b.id].window : '';
+        return sa < sb ? -1 : (sa > sb ? 1 : 0);
+      });
+      var label = date === 'unscheduled' ? 'Unscheduled' : dateLong(date);
+      return '<div class="sheet">'
+        + '<div class="day-label">' + esc(label) + ' <span class="count">' + list.length + ' work order' + (list.length===1?'':'s') + '</span></div>'
+        + list.map(slotRowHtml).join('')
+      + '</div>';
+    }).join('');
+
+    var dispatchRows = workOrders.map(function(w){
+      var dispatched = !!dispatchByWO[w.id];
+      var slot = slotByWO[w.id];
+      var overnightFlag = slot && isOvernight(slot.window);
+      var engCell = dispatched ? esc(dispatchByWO[w.id].engineerId) : '&mdash;';
+      var startCell = dispatched ? (esc(formatDateTimeUK(dispatchByWO[w.id].startsAt)) + (overnightFlag ? '&dagger;' : '')) : '&mdash;';
+      return '<tr' + (dispatched?'':' style="opacity:.6;"') + '>'
+        + '<td class="id">'+esc(w.id)+'</td>'
+        + '<td>'+engCell+'</td>'
+        + '<td>'+esc(w.address)+'</td>'
+        + '<td class="num">'+startCell+'</td>'
+      + '</tr>';
+    }).join('');
+
+    var notDispatchedList = workOrders.filter(function(w){ return w.status === 'QUEUED' && !dispatchByWO[w.id]; });
+    var footnoteBody = notDispatchedList.length
+      ? notDispatchedList.map(function(w){ return '<b>'+esc(w.id)+'</b> not dispatched &mdash; ' + reasonFor(w); }).join('. ') + '.'
+      : 'All queued work orders were dispatched.';
+
+    return ''
+      + '<div class="page-head"><h1>Day Sheet</h1><div class="sub">' + workOrders.length + ' work orders &middot; ' + dispatchList.length + ' visits planned</div></div>'
+      + daySheets
+      + '<div class="sheet">'
+        + '<div class="sheet-title">Dispatch roster</div>'
+        + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Work order</th><th>Engineer</th><th>Address</th><th class="num">Start</th></tr></thead>'
+        + '<tbody>' + dispatchRows + '</tbody></table></div>'
+        + '<div class="footnote">&dagger; Overnight job, start shown in UK local time. ' + footnoteBody + '</div>'
+      + '</div>';
+  }
+
+  document.getElementById('mainNav').addEventListener('click', function(e){
+    var t = e.target.closest('.tab');
+    if (t) setSection(t.getAttribute('data-section'));
+  });
+
+  window.addEventListener('unhandledrejection', function(ev){ ev.preventDefault(); });
+
+  fetchJSON('/').then(function(info){
+    if (info && info.version) {
+      var tag = document.getElementById('versionTag');
+      if (tag) tag.textContent = 'v' + info.version;
+    }
+  }).catch(function(){ /* version is a nice-to-have; omit silently if unavailable */ });
+
+  setSection('overview');
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { formatSlotTime } from '../shared/dates.ts';
+import { formatSlotTime, ukDateKey } from '../shared/dates.ts';
 import type { WorkOrder } from '../db.ts';
 
 export interface Slot {
@@ -26,7 +26,7 @@ export function slotFor(order: WorkOrder): Slot {
   return {
     workOrderId: order.id,
     window: `${formatSlotTime(from)} to ${formatSlotTime(to)}`,
-    date: order.requestedAt.slice(0, 10),
+    date: ukDateKey(start),
   };
 }
 

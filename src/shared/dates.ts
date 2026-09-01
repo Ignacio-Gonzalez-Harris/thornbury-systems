@@ -13,10 +13,21 @@ export function toDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// The Europe/London calendar date, as YYYY-MM-DD. This is the "day" the
+// customer is on, not the UTC day the timestamp happens to fall in.
+export function ukDateKey(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(d);
+}
+
+const UK_WEEKDAY_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London',
+  weekday: 'short',
+});
+
 export function isWorkingDay(d: Date): boolean {
-  const day = d.getDay();
-  if (day === 0 || day === 6) return false;
-  return !BANK_HOLIDAYS_2026.includes(toDateKey(d));
+  const weekday = UK_WEEKDAY_FORMAT.format(d);
+  if (weekday === 'Sat' || weekday === 'Sun') return false;
+  return !BANK_HOLIDAYS_2026.includes(ukDateKey(d));
 }
 
 export function addWorkingDays(from: Date, n: number): Date {
@@ -31,11 +42,14 @@ export function addWorkingDays(from: Date, n: number): Date {
 
 // What the customer is told their appointment time is.
 export function formatSlotTime(d: Date): string {
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(d);
 }
 
 export function sameDay(a: Date, b: Date): boolean {
-  return toDateKey(a) === toDateKey(b);
+  return ukDateKey(a) === ukDateKey(b);
 }

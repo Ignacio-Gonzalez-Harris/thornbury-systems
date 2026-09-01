@@ -427,6 +427,127 @@
     font-size:11.5px;
     padding:30px 20px 40px 20px;
   }
+
+  /* ================= motion layer (fx) =================
+     Physical-paper motion language: sheets land, rows are written in,
+     totals are ruled off, stamps slam. Transform/opacity only. */
+
+  /* tabs: binder-tab press feel */
+  .tab{ transition: background-color .12s ease, color .12s ease, transform .16s ease; }
+  .tab:not(.active):hover{ transform: translateY(-1px); }
+  .tab:not(.active):active{ transform: translateY(1px); }
+
+  /* paper lift on hover */
+  .sheet, .document{ transition: transform .18s ease, box-shadow .18s ease; }
+  .sheet:hover{ transform: translateY(-2px); box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 14px 30px rgba(42,36,29,.09); }
+  .document:hover{ transform: translateY(-2px); box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 16px 34px rgba(42,36,29,.11); }
+
+  /* sheets slide in and settle (staggered via --i set by JS) */
+  .sheet-in{ animation: fxSheetIn .42s cubic-bezier(.23,1,.32,1) backwards; animation-delay: calc(var(--i,0)*60ms); }
+  @keyframes fxSheetIn{ from{ opacity:0; transform: translateY(14px) rotate(-.3deg); } }
+
+  /* ledger rows write themselves in (staggered via --r, inherits --i) */
+  .row-in{ animation: fxRowIn .3s ease-out backwards; animation-delay: calc(var(--i,0)*60ms + 140ms + var(--r,0)*25ms); }
+  @keyframes fxRowIn{ from{ opacity:0; transform: translateX(-6px); } }
+
+  /* clickable row: accent margin tick */
+  table.ledger tr.clickable td:first-child{ position:relative; }
+  table.ledger tr.clickable td:first-child::before{
+    content:''; position:absolute; left:0; top:22%; bottom:22%; width:3px;
+    border-radius:2px; background:var(--accent);
+    opacity:0; transform:scaleY(.4);
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  table.ledger tr.clickable:hover td:first-child::before{ opacity:.75; transform:scaleY(1); }
+
+  /* crumb: second rule draws itself under the link (double rule on hover) */
+  .crumb button{
+    background-image:linear-gradient(var(--accent), var(--accent));
+    background-repeat:no-repeat; background-size:0% 2px; background-position:0 100%;
+    transition: background-size .2s ease; padding-bottom:1px;
+  }
+  .crumb button:hover{ background-size:100% 2px; }
+
+  /* loading: typewriter ellipsis */
+  .loading-msg .dots span{ opacity:0; animation: fxDot 1.2s ease-in-out infinite; }
+  .loading-msg .dots span:nth-child(2){ animation-delay:.2s; }
+  .loading-msg .dots span:nth-child(3){ animation-delay:.4s; }
+  @keyframes fxDot{ 0%{opacity:0;} 30%,70%{opacity:1;} 100%{opacity:0;} }
+
+  /* error: paper dropped on the desk, QUERY stamp in the corner */
+  .error-msg{ position:relative; }
+  .error-in{ transform: rotate(-.5deg); animation: fxErrorDrop .4s cubic-bezier(.23,1,.32,1) backwards; padding-right:96px; }
+  @keyframes fxErrorDrop{ from{ opacity:0; transform: translateY(-10px) rotate(-1.4deg); } }
+  .error-in::after{
+    content:'QUERY'; position:absolute; top:10px; right:14px;
+    font-family:Cambria, Georgia, serif; font-size:11px; font-weight:700; letter-spacing:.14em;
+    color:var(--accent); border:2px solid var(--accent); border-radius:3px; padding:2px 8px;
+    transform:rotate(7deg); opacity:.7;
+    animation: fxQueryIn .18s ease-out .25s backwards;
+  }
+  @keyframes fxQueryIn{ from{ opacity:0; transform: rotate(7deg) scale(1.4); } }
+
+  /* PAID/UNPAID stamp: CSS slam (fallback + default) */
+  .stamp-anim{ animation: fxStampSlam .5s cubic-bezier(.2,1.4,.4,1) .45s backwards; }
+  @keyframes fxStampSlam{
+    0%{ opacity:0; transform: rotate(-4deg) scale(2.4); }
+    55%{ opacity:.92; transform: rotate(-11.6deg) scale(.94); }
+    78%{ transform: rotate(-10.7deg) scale(1.03); }
+    100%{ opacity:.85; transform: rotate(-11deg) scale(1); }
+  }
+  .stamp-wait{ opacity:0; }
+  .stamp-imprint{ animation: fxImprint .18s ease-out backwards; }
+  @keyframes fxImprint{ from{ opacity:0; transform: rotate(-11deg) scale(1.14); } }
+  .stamp-anim::after, .stamp-imprint::after{
+    content:''; position:absolute; inset:-12px;
+    border:2px solid currentColor; border-radius:10px;
+    opacity:0; pointer-events:none;
+    animation: fxRing .4s ease-out .78s;
+  }
+  .stamp-imprint::after{ animation-delay:.05s; }
+  @keyframes fxRing{ 0%{ opacity:.35; transform:scale(.75);} 100%{ opacity:0; transform:scale(1.2);} }
+
+  /* the sheet takes the blow */
+  .doc-thump{ animation: fxThump .22s ease-out; }
+  @keyframes fxThump{ 0%{ transform:none; } 45%{ transform: translateY(1px) scale(.998); } 100%{ transform:none; } }
+
+  /* totals ruled off: double underline draws after the figure is inked */
+  .summary-row.grand.rule-wait{ border-bottom-color: transparent; position:relative; }
+  .summary-row.grand.rule-wait::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:0;
+    border-bottom:3px double var(--ink); transform:scaleX(0); transform-origin:left;
+  }
+  .summary-row.grand.rule-wait.rule-drawn::after{ animation: fxRule .45s ease-out forwards; }
+  tr.row-grand.rule-wait td{ border-bottom-color: transparent !important; position:relative; }
+  tr.row-grand.rule-wait td::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:0;
+    border-bottom:3px double var(--ink); transform:scaleX(0); transform-origin:left;
+  }
+  tr.row-grand.rule-wait.rule-drawn td::after{ animation: fxRule .3s ease-out forwards; }
+  tr.row-grand.rule-wait.rule-drawn td:nth-child(2)::after{ animation-delay:.28s; }
+  @keyframes fxRule{ to{ transform:scaleX(1); } }
+
+  /* ink blot click feedback */
+  .ink-blot{
+    position:fixed; width:16px; height:16px; margin:-8px 0 0 -8px;
+    border-radius:50%; pointer-events:none; z-index:99;
+    background:radial-gradient(circle, rgba(110,20,35,.4), rgba(110,20,35,0) 70%);
+    animation: fxBlot .45s ease-out forwards;
+  }
+  @keyframes fxBlot{ from{ transform:scale(.4); opacity:1; } to{ transform:scale(3); opacity:0; } }
+
+  /* three.js stamp overlay canvas */
+  .stamp3d{ position:absolute; pointer-events:none; z-index:3; }
+
+  /* calm fallback: everything lands instantly, nothing is lost */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{
+      animation-duration:.01ms !important;
+      animation-delay:0ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -536,7 +657,7 @@
 
   function errorBlock(err){
     var msg = (err && err.message) ? err.message : 'Something went wrong.';
-    return '<div class="sheet"><div class="error-msg">'+esc(msg)+'</div></div>';
+    return '<div class="sheet sheet-in"><div class="error-msg error-in">'+esc(msg)+'</div></div>';
   }
 
   var renderToken = 0;
@@ -546,7 +667,12 @@
     });
     var myToken = ++renderToken;
     var el = document.getElementById('content');
-    el.innerHTML = '<div class="loading-msg">Loading&hellip;</div>';
+    // Only show the loading state if the fetch is actually slow — keeps
+    // fast navigations paint-fast and flicker-free.
+    var loadTimer = setTimeout(function(){
+      if (myToken !== renderToken) return;
+      el.innerHTML = '<div class="loading-msg">Entering into ledger<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>';
+    }, 120);
     var html;
     try {
       if (state.section==='overview') html = await renderOverview();
@@ -555,22 +681,27 @@
       else if (state.section==='schedule') html = await renderSchedule();
       else html = '';
     } catch (err) {
+      clearTimeout(loadTimer);
       if (myToken !== renderToken) return;
       el.innerHTML = errorBlock(err);
       return;
     }
+    clearTimeout(loadTimer);
     if (myToken !== renderToken) return; // superseded by a newer navigation
     el.innerHTML = html;
+    animateIn(el);
+    animateNumbers(el);
+    orchestrateStamp(el);
     wireRows();
     window.scrollTo(0,0);
   }
 
   function wireRows(){
     document.querySelectorAll('[data-open-customer]').forEach(function(r){
-      r.addEventListener('click', function(){ openCustomer(r.getAttribute('data-open-customer')); });
+      r.addEventListener('click', function(ev){ inkBlot(ev); openCustomer(r.getAttribute('data-open-customer')); });
     });
     document.querySelectorAll('[data-open-invoice]').forEach(function(r){
-      r.addEventListener('click', function(){ openInvoice(r.getAttribute('data-open-invoice'), r.getAttribute('data-from-customer')); });
+      r.addEventListener('click', function(ev){ inkBlot(ev); openInvoice(r.getAttribute('data-open-invoice'), r.getAttribute('data-from-customer')); });
     });
     document.querySelectorAll('[data-back]').forEach(function(r){
       r.addEventListener('click', function(){
@@ -580,6 +711,235 @@
         else if (target==='customer'){ state.invoiceId=null; state.section='customers'; state.customerId=state._backToCustomer; render(); }
       });
     });
+  }
+
+  /* ---------------- motion / fx layer ----------------
+     Entry-based only: #content is rebuilt wholesale on every navigation, so
+     every effect is applied as classes/vars after the innerHTML swap.
+     Values are never touched: counters read data-pence/data-count and always
+     restore the exact server-rendered text on the final frame. */
+
+  function fxReduced(){
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  // Sheets land with a stagger; rows write themselves in (capped for readability).
+  function animateIn(root){
+    Array.prototype.forEach.call(root.children, function(node, idx){
+      node.classList.add('sheet-in');
+      node.style.setProperty('--i', idx);
+    });
+    root.querySelectorAll('table.ledger tbody').forEach(function(tb){
+      Array.prototype.slice.call(tb.rows, 0, 15).forEach(function(tr, r){
+        tr.classList.add('row-in');
+        tr.style.setProperty('--r', r);
+      });
+    });
+    var parentCounts = [];
+    root.querySelectorAll('.slot-row, .summary-row').forEach(function(row){
+      var p = row.parentNode, entry = null;
+      for (var i=0;i<parentCounts.length;i++){ if (parentCounts[i].p===p){ entry=parentCounts[i]; break; } }
+      if (!entry){ entry = { p:p, n:0 }; parentCounts.push(entry); }
+      if (entry.n < 15){ row.classList.add('row-in'); row.style.setProperty('--r', entry.n); }
+      entry.n++;
+    });
+  }
+
+  // Money and KPI figures tick up (integer pence, existing money() formatter),
+  // then the double underline rules the total off.
+  function animateNumbers(root){
+    if (fxReduced()) return;
+    root.querySelectorAll('.summary-row.grand, tr.row-grand').forEach(function(row){
+      if (row.querySelector('[data-pence]')) row.classList.add('rule-wait');
+    });
+    root.querySelectorAll('[data-pence], [data-count]').forEach(function(elm){
+      var isPence = elm.hasAttribute('data-pence');
+      var target = Number(elm.getAttribute(isPence ? 'data-pence' : 'data-count'));
+      var finalText = elm.textContent;
+      var ruleRow = elm.closest('.rule-wait');
+      function finish(){
+        elm.textContent = finalText; // exact server value, always
+        if (ruleRow && ruleRow.isConnected) ruleRow.classList.add('rule-drawn');
+      }
+      if (!isFinite(target)){ finish(); return; }
+      var start = null, dur = 520;
+      function frame(now){
+        if (!elm.isConnected) return; // superseded by a newer navigation
+        if (start === null) start = now;
+        var t = Math.min(1, (now - start) / dur);
+        var eased = 1 - Math.pow(1 - t, 3);
+        if (t < 1){
+          var v = Math.round(target * eased);
+          elm.textContent = isPence ? money(v) : String(v);
+          requestAnimationFrame(frame);
+        } else {
+          finish();
+        }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  // Ink blot at the click point.
+  function inkBlot(ev){
+    if (fxReduced() || !ev || !ev.clientX) return;
+    var b = document.createElement('div');
+    b.className = 'ink-blot';
+    b.style.left = ev.clientX + 'px';
+    b.style.top = ev.clientY + 'px';
+    document.body.appendChild(b);
+    setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 700);
+  }
+
+  /* ---- the stamp moment: three.js rubber stamp with a CSS slam fallback ---- */
+
+  var THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  var threeLoad = null;
+  // Lazy-loaded only on first invoice render; cached for later invoices.
+  function loadThree(timeoutMs){
+    if (window.THREE) return Promise.resolve(window.THREE);
+    if (!threeLoad){
+      threeLoad = new Promise(function(resolve, reject){
+        var s = document.createElement('script');
+        s.src = THREE_URL;
+        s.onload = function(){ if (window.THREE) resolve(window.THREE); else reject(new Error('three unavailable')); };
+        s.onerror = function(){ reject(new Error('three failed to load')); };
+        document.head.appendChild(s);
+      });
+      threeLoad['catch'](function(){ /* handled per call site */ });
+    }
+    return new Promise(function(resolve, reject){
+      var timer = setTimeout(function(){ reject(new Error('three load timeout')); }, timeoutMs);
+      threeLoad.then(function(T){ clearTimeout(timer); resolve(T); },
+                     function(e){ clearTimeout(timer); reject(e); });
+    });
+  }
+
+  function cssSlam(stamp){
+    stamp.classList.remove('stamp-wait');
+    stamp.classList.add('stamp-anim');
+    var docBody = stamp.parentNode ? stamp.parentNode.querySelector('.doc-body') : null;
+    setTimeout(function(){ if (docBody && docBody.isConnected) docBody.classList.add('doc-thump'); }, 780);
+  }
+
+  function orchestrateStamp(root){
+    var stamp = root.querySelector('.document > .stamp');
+    if (!stamp) return;
+    if (fxReduced()) return; // static stamp, exactly as rendered
+    stamp.classList.add('stamp-wait');
+    var myToken = renderToken;
+    loadThree(1500).then(function(THREE){
+      if (myToken !== renderToken || !stamp.isConnected) return;
+      try { play3DStamp(THREE, stamp); }
+      catch (e) { cssSlam(stamp); } // no WebGL, or anything else — same slam, zero fuss
+    }, function(){
+      if (myToken === renderToken && stamp.isConnected) cssSlam(stamp);
+    });
+  }
+
+  // A small transparent canvas over the document: a wooden rubber stamp drops,
+  // strikes (the DOM stamp imprints at contact), lifts away, canvas removed.
+  function play3DStamp(THREE, stamp){
+    var docEl = stamp.parentNode; // .document, position:relative, overflow:hidden
+    var W = 260, H = 320;
+    var renderer = new THREE.WebGLRenderer({ alpha:true, antialias:true }); // throws without WebGL
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    var canvas = renderer.domElement;
+    canvas.className = 'stamp3d';
+    // Centre the strike point on the resting stamp; world origin projects ~78% down the canvas.
+    var cx = stamp.offsetLeft + stamp.offsetWidth / 2;
+    var cy = stamp.offsetTop + stamp.offsetHeight / 2;
+    canvas.style.left = (cx - W / 2) + 'px';
+    canvas.style.top = (cy - Math.round(H * 0.78)) + 'px';
+    docEl.appendChild(canvas);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 50);
+    camera.position.set(0.5, 2.0, 3.9);
+    camera.lookAt(0, 0.85, 0);
+    scene.add(new THREE.AmbientLight(0xfff4e0, 0.85));
+    var sun = new THREE.DirectionalLight(0xffffff, 0.7);
+    sun.position.set(2, 4, 3);
+    scene.add(sun);
+
+    var wood = new THREE.MeshStandardMaterial({ color:0x8a5a33, roughness:.55, metalness:.05 });
+    var dark = new THREE.MeshStandardMaterial({ color:0x33261d, roughness:.5, metalness:.1 });
+    var rubber = new THREE.MeshStandardMaterial({ color:0x6e1423, roughness:.9, metalness:0 });
+    var group = new THREE.Group();
+    var knob = new THREE.Mesh(new THREE.SphereGeometry(.26, 24, 16), wood);
+    knob.position.y = 1.42;
+    var handle = new THREE.Mesh(new THREE.CylinderGeometry(.13, .2, 1.0, 20), wood);
+    handle.position.y = 0.82;
+    var cap = new THREE.Mesh(new THREE.CylinderGeometry(.58, .62, .16, 28), dark);
+    cap.position.y = 0.19;
+    var pad = new THREE.Mesh(new THREE.CylinderGeometry(.6, .6, .1, 28), rubber);
+    pad.position.y = 0.05;
+    group.add(knob); group.add(handle); group.add(cap); group.add(pad);
+    group.position.y = 3.2;
+    group.rotation.z = -0.22;
+    scene.add(group);
+
+    // Soft radial contact shadow (canvas texture, so it fades at the edges).
+    var shCanvas = document.createElement('canvas');
+    shCanvas.width = shCanvas.height = 64;
+    var shCtx = shCanvas.getContext('2d');
+    var grad = shCtx.createRadialGradient(32, 32, 4, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(42,36,29,0.55)');
+    grad.addColorStop(1, 'rgba(42,36,29,0)');
+    shCtx.fillStyle = grad;
+    shCtx.fillRect(0, 0, 64, 64);
+    var shadowMat = new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(shCanvas), transparent:true, opacity:0, depthWrite:false });
+    var shadow = new THREE.Mesh(new THREE.CircleGeometry(.62, 28), shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.001;
+    scene.add(shadow);
+
+    var docBody = docEl.querySelector('.doc-body');
+    var struck = false;
+    var t0 = null;
+    var DROP = 380, HOLD = 180, LIFT = 490; // ms
+    function cleanup(){
+      renderer.dispose();
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    }
+    function tick(now){
+      if (!canvas.isConnected){ renderer.dispose(); return; } // navigation removed the document
+      if (t0 === null) t0 = now;
+      var t = now - t0;
+      if (t <= DROP){
+        var d = t / DROP; d = d * d; // accelerate into the strike
+        group.position.y = 3.2 * (1 - d);
+        group.rotation.z = -0.22 * (1 - d) - 0.02;
+        shadowMat.opacity = 0.55 * d;
+        var s = 0.5 + 0.5 * d;
+        shadow.scale.set(s, s, 1);
+      } else if (t <= DROP + HOLD){
+        group.position.y = 0;
+        if (!struck){
+          struck = true;
+          group.scale.y = 0.92; // squash on impact
+          stamp.classList.remove('stamp-wait');
+          stamp.classList.add('stamp-imprint'); // the ink lands
+          if (docBody && docBody.isConnected) docBody.classList.add('doc-thump');
+        }
+        group.scale.y = Math.min(1, 0.92 + 0.08 * ((t - DROP) / HOLD));
+      } else if (t <= DROP + HOLD + LIFT){
+        var u = (t - DROP - HOLD) / LIFT;
+        var e = 1 - Math.pow(1 - u, 2);
+        group.scale.y = 1;
+        group.position.y = 1.9 * e;
+        group.rotation.z = -0.3 * e;
+        shadowMat.opacity = 0.55 * (1 - e);
+        canvas.style.opacity = u > 0.4 ? String(1 - (u - 0.4) / 0.6) : '1';
+      } else {
+        cleanup();
+        return;
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
   }
 
   /* ---------------- OVERVIEW ---------------- */
@@ -613,15 +973,15 @@
         + '<div class="sheet-title">Position at a glance</div>'
         + '<div class="summary-grid">'
           + '<div>'
-            + '<div class="summary-row"><span class="label">Accounts on ledger</span><span class="value num">'+customers.length+'</span></div>'
-            + '<div class="summary-row"><span class="label">Open work orders</span><span class="value num">'+openWorkOrders+'</span></div>'
+            + '<div class="summary-row"><span class="label">Accounts on ledger</span><span class="value num" data-count="'+customers.length+'">'+customers.length+'</span></div>'
+            + '<div class="summary-row"><span class="label">Open work orders</span><span class="value num" data-count="'+openWorkOrders+'">'+openWorkOrders+'</span></div>'
           + '</div>'
           + '<div>'
-            + '<div class="summary-row"><span class="label">Visits planned (dispatched)</span><span class="value num">'+visitsPlanned+'</span></div>'
-            + '<div class="summary-row"><span class="label">Accounts in arrears</span><span class="value num">'+arrears.length+'</span></div>'
+            + '<div class="summary-row"><span class="label">Visits planned (dispatched)</span><span class="value num" data-count="'+visitsPlanned+'">'+visitsPlanned+'</span></div>'
+            + '<div class="summary-row"><span class="label">Accounts in arrears</span><span class="value num" data-count="'+arrears.length+'">'+arrears.length+'</span></div>'
           + '</div>'
         + '</div>'
-        + '<div class="summary-row grand" style="margin-top:8px;"><span class="label">Total outstanding across all accounts</span><span class="value money">'+money(totalOutstanding)+'</span></div>'
+        + '<div class="summary-row grand" style="margin-top:8px;"><span class="label">Total outstanding across all accounts</span><span class="value money" data-pence="'+totalOutstanding+'">'+money(totalOutstanding)+'</span></div>'
       + '</div>'
       + '<div class="sheet">'
         + '<div class="sheet-title">Accounts requiring attention</div>'
@@ -696,7 +1056,7 @@
           + '</div>'
           + '<div class="outstanding-box">'
             + '<div class="label">Outstanding</div>'
-            + '<div class="amt'+(outstandingZero?' zero':'')+'">'+esc(customer.outstanding)+'</div>'
+            + '<div class="amt'+(outstandingZero?' zero':'')+'"'+(typeof statement.totals.outstanding==='number'?' data-pence="'+statement.totals.outstanding+'"':'')+'>'+esc(customer.outstanding)+'</div>'
           + '</div>'
         + '</div>'
       + '</div>'
@@ -725,7 +1085,7 @@
           + '<tbody>'
             + stmtRows
             + '<tr class="row-total"><td colspan="4"></td><td class="num money">'+esc(statement.display.total)+'</td><td class="num money">'+money(totalPaid)+'</td></tr>'
-            + '<tr class="row-grand"><td colspan="5">Amount outstanding</td><td class="num money">'+esc(statement.display.outstanding)+'</td></tr>'
+            + '<tr class="row-grand"><td colspan="5">Amount outstanding</td><td class="num money"'+(typeof statement.totals.outstanding==='number'?' data-pence="'+statement.totals.outstanding+'"':'')+'>'+esc(statement.display.outstanding)+'</td></tr>'
           + '</tbody></table></div>'
           + '<div class="vat-note">' + VAT_NOTE + '</div>'
         + '</div>'
@@ -801,7 +1161,7 @@
             + lineRows
             + '<tr class="row-total"><td colspan="4">Net</td><td class="num money">'+money(invoice.net)+'</td></tr>'
             + '<tr><td colspan="4">VAT</td><td class="num money">'+money(invoice.vat)+'</td></tr>'
-            + '<tr class="row-grand"><td colspan="4">Total due</td><td class="num money">'+esc(invoice.display)+'</td></tr>'
+            + '<tr class="row-grand"><td colspan="4">Total due</td><td class="num money"'+(typeof invoice.total==='number'?' data-pence="'+invoice.total+'"':'')+'>'+esc(invoice.display)+'</td></tr>'
           + '</tbody></table></div>'
           + '<div class="vat-note">' + VAT_NOTE + '</div>'
         + '</div>'

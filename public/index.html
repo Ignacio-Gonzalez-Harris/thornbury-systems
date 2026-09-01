@@ -428,6 +428,83 @@
     padding:30px 20px 40px 20px;
   }
 
+  /* ---------- write-action controls (buttons / inline forms) ---------- */
+  .ledger-btn{
+    font-family:Cambria, Georgia, serif;
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--accent);
+    background:var(--paper-card);
+    border:1px solid var(--rule-strong);
+    border-radius:3px;
+    padding:7px 16px;
+    cursor:pointer;
+  }
+  .ledger-btn:hover:not(:disabled){ background:var(--accent-tint); border-color:var(--accent); color:var(--accent-soft); }
+  .ledger-btn:active:not(:disabled){ transform:translateY(1px); }
+  .ledger-btn:disabled{ opacity:.55; cursor:default; }
+  .ledger-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .ledger-btn-sm{ font-size:10.5px; padding:4px 10px; }
+  .ledger-btn-ghost{ background:transparent; color:var(--ink-soft); border-color:var(--rule-strong); }
+  .ledger-btn-ghost:hover:not(:disabled){ background:#efe8d6; color:var(--ink); }
+
+  .inline-error-msg{
+    color:var(--accent);
+    background:var(--accent-tint);
+    border:1px dashed var(--rule-strong);
+    padding:8px 12px;
+    font-size:12.5px;
+    border-radius:2px;
+  }
+  .inline-error-msg-sm{ margin-top:6px; font-size:10.5px; padding:4px 7px; }
+
+  .doc-action-row{
+    margin-top:18px;
+    padding-top:14px;
+    border-top:1px solid var(--rule);
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+
+  .schedule-controls-row{ display:flex; gap:12px; flex-wrap:wrap; }
+  .schedule-controls .footnote{ margin-top:14px; }
+  .schedule-controls .inline-error-msg{ margin-top:14px; }
+  .slot-status-col{ text-align:right; min-width:150px; }
+  .slot-action-col{ text-align:right; min-width:120px; flex:0 0 auto; }
+  .slot-done-mark{ color:var(--good); font-family:Cambria, Georgia, serif; font-weight:700; font-size:12.5px; letter-spacing:.04em; }
+
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(190px,1fr));
+    gap:14px 18px;
+    margin-bottom:14px;
+  }
+  .form-grid label{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    font-size:11px;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .form-grid label[hidden]{ display:none; }
+  .form-grid select, .form-grid input{
+    font-family:-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--rule-strong);
+    border-radius:3px;
+    padding:7px 9px;
+  }
+  .form-grid select:focus, .form-grid input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .form-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
   /* ================= motion layer (fx) =================
      Physical-paper motion language: sheets land, rows are written in,
      totals are ruled off, stamps slam. Transform/opacity only. */
@@ -605,6 +682,27 @@
     }
   }
 
+  // POST helper mirroring fetchJSON: JSON body when given, error bodies parsed for message.
+  async function postJSON(path, body){
+    var res;
+    var opts = { method:'POST', headers:{ 'Accept':'application/json' } };
+    if (body !== undefined){
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    try {
+      res = await fetch(path, opts);
+    } catch (networkErr) {
+      throw new ApiError('The Thornbury API is not responding — is the app running?');
+    }
+    var parsed = null;
+    try { parsed = await res.json(); } catch (e) { /* no body, or not JSON */ }
+    if (!res.ok) {
+      throw new ApiError((parsed && parsed.error) ? parsed.error : 'The Thornbury API returned something unexpected.');
+    }
+    return parsed;
+  }
+
   function byId(list, id){ for (var i=0;i<list.length;i++){ if (list[i].id===id) return list[i]; } return null; }
 
   // Mirrors the server's shared/money.ts format(): integer maths only, no floats.
@@ -644,7 +742,7 @@
     return String(address).toLowerCase().replace(/[,.]/g,'').trim().replace(/\s+/g,' ');
   }
 
-  var state = { section:'overview', customerId:null, invoiceId:null, _backToCustomer:null };
+  var state = { section:'overview', customerId:null, invoiceId:null, _backToCustomer:null, scheduleMsg:null };
 
   function setSection(section){
     state.section = section;
@@ -693,6 +791,7 @@
     animateNumbers(el);
     orchestrateStamp(el);
     wireRows();
+    wireActions();
     window.scrollTo(0,0);
   }
 
@@ -711,6 +810,157 @@
         else if (target==='customer'){ state.invoiceId=null; state.section='customers'; state.customerId=state._backToCustomer; render(); }
       });
     });
+  }
+
+  /* ---------------- write actions ----------------
+     Every action: disables its trigger with an in-progress label, POSTs via
+     postJSON, and on success calls render() so the page re-fetches through
+     the normal render() path (never a local cache patch). On failure the
+     control re-enables and an in-theme inline error appears next to it —
+     no alert(), no page reload. */
+
+  function wireActions(){
+    document.querySelectorAll('[data-pay-invoice]').forEach(function(btn){
+      btn.addEventListener('click', function(){ payInvoice(btn); });
+    });
+    document.querySelectorAll('[data-run-dispatch]').forEach(function(btn){
+      btn.addEventListener('click', function(){ runDispatch(btn); });
+    });
+    document.querySelectorAll('[data-complete-wo]').forEach(function(btn){
+      btn.addEventListener('click', function(){ completeWorkOrder(btn); });
+    });
+    document.querySelectorAll('[data-open-raise-wo]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var panel = document.querySelector('[data-raise-wo-panel]');
+        if (panel) panel.hidden = !panel.hidden;
+      });
+    });
+    document.querySelectorAll('[data-raise-wo-cancel]').forEach(function(btn){
+      btn.addEventListener('click', function(){ closeRaiseWorkOrder(); });
+    });
+    document.querySelectorAll('[data-raise-requires]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        var isOther = sel.value === '__other__';
+        var wrap = document.querySelector('[data-raise-requires-other-wrap]');
+        var input = document.querySelector('[data-raise-requires-other]');
+        if (wrap) wrap.hidden = !isOther;
+        if (input) input.required = isOther;
+      });
+    });
+    document.querySelectorAll('[data-raise-wo-form]').forEach(function(form){
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        submitRaiseWorkOrder(form);
+      });
+    });
+  }
+
+  function closeRaiseWorkOrder(){
+    var panel = document.querySelector('[data-raise-wo-panel]');
+    var form = document.querySelector('[data-raise-wo-form]');
+    if (form) form.reset();
+    var wrap = document.querySelector('[data-raise-requires-other-wrap]');
+    if (wrap) wrap.hidden = true;
+    var errEl = document.querySelector('[data-raise-wo-error]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    if (panel) panel.hidden = true;
+  }
+
+  async function payInvoice(btn){
+    var id = btn.getAttribute('data-pay-invoice');
+    var row = btn.closest('.doc-action-row');
+    var errEl = row ? row.querySelector('[data-pay-error]') : null;
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    btn.disabled = true;
+    var original = btn.textContent;
+    btn.textContent = 'Recording payment…';
+    try {
+      await postJSON('/invoices/'+encodeURIComponent(id)+'/pay');
+      render();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = original;
+      if (errEl){ errEl.textContent = (err && err.message) || 'Something went wrong.'; errEl.hidden = false; }
+    }
+  }
+
+  async function runDispatch(btn){
+    var panel = btn.closest('.schedule-controls');
+    var errEl = panel ? panel.querySelector('[data-dispatch-error]') : null;
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    btn.disabled = true;
+    var original = btn.textContent;
+    btn.textContent = 'Dispatching…';
+    try {
+      var result = await postJSON('/dispatch/run');
+      var n = (result && typeof result.dispatched === 'number') ? result.dispatched : 0;
+      state.scheduleMsg = n + ' visit' + (n === 1 ? '' : 's') + ' dispatched.';
+      render();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = original;
+      if (errEl){ errEl.textContent = (err && err.message) || 'Something went wrong.'; errEl.hidden = false; }
+    }
+  }
+
+  async function completeWorkOrder(btn){
+    var id = btn.getAttribute('data-complete-wo');
+    var errEl = btn.parentElement ? btn.parentElement.querySelector('[data-wo-error]') : null;
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    btn.disabled = true;
+    var original = btn.textContent;
+    btn.textContent = 'Marking done…';
+    try {
+      await postJSON('/work-orders/'+encodeURIComponent(id)+'/complete');
+      render();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = original;
+      if (errEl){ errEl.textContent = (err && err.message) || 'Something went wrong.'; errEl.hidden = false; }
+    }
+  }
+
+  async function submitRaiseWorkOrder(form){
+    var errEl = form.querySelector('[data-raise-wo-error]');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var cancelBtn = form.querySelector('[data-raise-wo-cancel]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+
+    var customerId = form.elements.customerId.value;
+    var requiresSel = form.elements.requires.value;
+    var requiresOther = form.elements.requiresOther ? form.elements.requiresOther.value.trim() : '';
+    var requires = requiresSel === '__other__' ? requiresOther : requiresSel;
+    var whenLocal = form.elements.requestedAt.value;
+    var duration = Number(form.elements.durationMinutes.value);
+
+    if (!customerId || !requires || !whenLocal || !isFinite(duration) || duration <= 0){
+      errEl.textContent = 'Fill in every field before raising the work order.';
+      errEl.hidden = false;
+      return;
+    }
+    var requestedAtIso;
+    try { requestedAtIso = new Date(whenLocal).toISOString(); }
+    catch (e) { errEl.textContent = 'That date and time is not valid.'; errEl.hidden = false; return; }
+
+    submitBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    var original = submitBtn.textContent;
+    submitBtn.textContent = 'Raising…';
+    try {
+      await postJSON('/work-orders', {
+        customerId: customerId,
+        requires: requires,
+        requestedAt: requestedAtIso,
+        durationMinutes: duration
+      });
+      render();
+    } catch (err) {
+      submitBtn.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      submitBtn.textContent = original;
+      errEl.textContent = (err && err.message) || 'Something went wrong.';
+      errEl.hidden = false;
+    }
   }
 
   /* ---------------- motion / fx layer ----------------
@@ -945,9 +1195,9 @@
   /* ---------------- OVERVIEW ---------------- */
   async function renderOverview(){
     var results = await Promise.all([
-      fetchJSON('/customers'), fetchJSON('/invoices'), fetchJSON('/work-orders'), fetchJSON('/dispatch')
+      fetchJSON('/customers'), fetchJSON('/invoices'), fetchJSON('/work-orders')
     ]);
-    var customers = results[0], invoices = results[1], workOrders = results[2], dispatchList = results[3];
+    var customers = results[0], invoices = results[1], workOrders = results[2];
 
     var outstandingByCustomer = {};
     invoices.forEach(function(inv){
@@ -957,7 +1207,11 @@
     Object.keys(outstandingByCustomer).forEach(function(k){ totalOutstanding += outstandingByCustomer[k]; });
     var arrears = customers.filter(function(c){ return (outstandingByCustomer[c.id]||0) > 0; });
     var openWorkOrders = workOrders.filter(function(w){ return w.status !== 'DONE'; }).length;
-    var visitsPlanned = dispatchList.length;
+    // Ground truth from the work orders themselves (status set by /dispatch/run),
+    // not the /dispatch preview endpoint, which only recomputes what it WOULD
+    // assign among still-QUEUED orders and stops reflecting committed visits
+    // once dispatch has actually run.
+    var visitsPlanned = workOrders.filter(function(w){ return w.status !== 'QUEUED'; }).length;
 
     var arrearsRows = arrears.map(function(c){
       return '<tr class="clickable" data-open-customer="'+esc(c.id)+'">'
@@ -1137,6 +1391,11 @@
     var backBtn = state._backToCustomer
       ? '<button data-back="customer">&larr; Back to ' + esc(customer.name) + '</button>'
       : '<button data-back="invoices">&larr; Back to invoice register</button>';
+    var payAction = invoice.paid ? '' : ''
+      + '<div class="doc-action-row">'
+        + '<div class="inline-error-msg" data-pay-error hidden></div>'
+        + '<button type="button" class="ledger-btn" data-pay-invoice="'+esc(invoice.id)+'">Record payment</button>'
+      + '</div>';
 
     return ''
       + '<div class="crumb">' + backBtn + '</div>'
@@ -1164,6 +1423,7 @@
             + '<tr class="row-grand"><td colspan="4">Total due</td><td class="num money"'+(typeof invoice.total==='number'?' data-pence="'+invoice.total+'"':'')+'>'+esc(invoice.display)+'</td></tr>'
           + '</tbody></table></div>'
           + '<div class="vat-note">' + VAT_NOTE + '</div>'
+          + payAction
         + '</div>'
         + '<div class="doc-foot">Please make payment within 14 days of the issue date. Queries: 01454 000 000.</div>'
       + '</div>';
@@ -1178,10 +1438,16 @@
 
     var slotByWO = {};
     slots.forEach(function(s){ slotByWO[s.workOrderId] = s; });
-    var dispatchByWO = {};
-    dispatchList.forEach(function(a){ dispatchByWO[a.workOrderId] = a; });
     var customerName = {};
     customers.forEach(function(c){ customerName[c.id] = c.name; });
+
+    // Ground truth for "has this work order been dispatched" is the work
+    // order's own status/engineerId (set by POST /dispatch/run), not the
+    // /dispatch preview endpoint — that recomputes a fresh hypothetical plan
+    // from whatever is still QUEUED, so it stops listing an order the moment
+    // it is actually committed. dispatchList is kept only for the best-effort
+    // "why not dispatched" footnote explanation below.
+    function isDispatched(w){ return w.status === 'DISPATCHED' || w.status === 'DONE'; }
 
     function isOvernight(window){
       var parts = String(window).split(' to ');
@@ -1214,18 +1480,24 @@
 
     function slotRowHtml(w){
       var slot = slotByWO[w.id];
-      var dispatched = !!dispatchByWO[w.id];
-      var notDispatched = w.status === 'QUEUED' && !dispatched;
+      var dispatched = isDispatched(w);
+      var isDone = w.status === 'DONE';
+      var notDispatched = w.status === 'QUEUED';
       var overnightFlag = slot && isOvernight(slot.window);
-      var engineerCell = dispatched ? esc(dispatchByWO[w.id].engineerId) : 'Not dispatched';
+      var engineerCell = dispatched && w.engineerId ? esc(w.engineerId) : 'Not dispatched';
       var flag = notDispatched ? '<div class="slot-flag">Not dispatched</div>' : '';
+      var actionCell = isDone
+        ? '<div class="slot-done-mark">&#10003; Done</div>'
+        : '<button type="button" class="ledger-btn ledger-btn-sm" data-complete-wo="'+esc(w.id)+'">Mark done</button>'
+          + '<div class="inline-error-msg inline-error-msg-sm" data-wo-error hidden></div>';
       return '<div class="slot-row'+(dispatched?'':' not-dispatched')+'">'
         + '<div class="slot-window">' + (slot ? esc(slot.window) : '&mdash;') + (overnightFlag ? ' <span style="font-weight:400;">(overnight)</span>' : '') + '<span class="lbl">customer window</span></div>'
         + '<div class="slot-main">'
           + '<div class="slot-wo">' + esc(w.id) + ' &middot; ' + esc(customerName[w.customerId] || w.customerId) + '</div>'
           + '<div class="slot-addr">' + esc(w.address) + '</div>'
         + '</div>'
-        + '<div style="text-align:right;min-width:150px;">' + engineerCell + flag + '</div>'
+        + '<div class="slot-status-col">' + engineerCell + flag + '</div>'
+        + '<div class="slot-action-col">' + actionCell + '</div>'
       + '</div>';
     }
 
@@ -1243,11 +1515,11 @@
     }).join('');
 
     var dispatchRows = workOrders.map(function(w){
-      var dispatched = !!dispatchByWO[w.id];
+      var dispatched = isDispatched(w);
       var slot = slotByWO[w.id];
       var overnightFlag = slot && isOvernight(slot.window);
-      var engCell = dispatched ? esc(dispatchByWO[w.id].engineerId) : '&mdash;';
-      var startCell = dispatched ? (esc(formatDateTimeUK(dispatchByWO[w.id].startsAt)) + (overnightFlag ? '&dagger;' : '')) : '&mdash;';
+      var engCell = dispatched && w.engineerId ? esc(w.engineerId) : '&mdash;';
+      var startCell = dispatched ? (esc(formatDateTimeUK(w.requestedAt)) + (overnightFlag ? '&dagger;' : '')) : '&mdash;';
       return '<tr' + (dispatched?'':' style="opacity:.6;"') + '>'
         + '<td class="id">'+esc(w.id)+'</td>'
         + '<td>'+engCell+'</td>'
@@ -1256,13 +1528,71 @@
       + '</tr>';
     }).join('');
 
-    var notDispatchedList = workOrders.filter(function(w){ return w.status === 'QUEUED' && !dispatchByWO[w.id]; });
+    var notDispatchedList = workOrders.filter(function(w){ return w.status === 'QUEUED'; });
     var footnoteBody = notDispatchedList.length
       ? notDispatchedList.map(function(w){ return '<b>'+esc(w.id)+'</b> not dispatched &mdash; ' + reasonFor(w); }).join('. ') + '.'
       : 'All queued work orders were dispatched.';
 
+    var dispatchedCount = workOrders.filter(isDispatched).length;
+
+    var dispatchMsgHtml = state.scheduleMsg
+      ? '<div class="footnote">' + esc(state.scheduleMsg) + '</div>'
+      : '';
+    state.scheduleMsg = null; // shown once, on the render that follows the action
+
+    var customerOptions = customers.map(function(c){
+      return '<option value="'+esc(c.id)+'">'+esc(c.name)+' ('+esc(c.id)+')</option>';
+    }).join('');
+
+    var controlsHtml = ''
+      + '<div class="sheet schedule-controls">'
+        + '<div class="sheet-title">Day sheet actions</div>'
+        + '<div class="schedule-controls-row">'
+          + '<button type="button" class="ledger-btn" data-run-dispatch>Run dispatch</button>'
+          + '<button type="button" class="ledger-btn" data-open-raise-wo>Raise work order</button>'
+        + '</div>'
+        + dispatchMsgHtml
+        + '<div class="inline-error-msg" data-dispatch-error hidden></div>'
+      + '</div>'
+      + '<div class="sheet raise-wo-sheet" data-raise-wo-panel hidden>'
+        + '<div class="sheet-title">Raise work order</div>'
+        + '<form data-raise-wo-form>'
+          + '<div class="form-grid">'
+            + '<label>Customer'
+              + '<select name="customerId" required>'
+                + '<option value="" disabled selected>Choose account&hellip;</option>'
+                + customerOptions
+              + '</select>'
+            + '</label>'
+            + '<label>Requires'
+              + '<select name="requires" data-raise-requires required>'
+                + '<option value="METER">Meter</option>'
+                + '<option value="LEAK">Leak</option>'
+                + '<option value="BACKFLOW">Backflow</option>'
+                + '<option value="__other__">Other&hellip;</option>'
+              + '</select>'
+            + '</label>'
+            + '<label data-raise-requires-other-wrap hidden>Describe requirement'
+              + '<input type="text" name="requiresOther" data-raise-requires-other placeholder="e.g. Stopcock replacement">'
+            + '</label>'
+            + '<label>Requested for'
+              + '<input type="datetime-local" name="requestedAt" required>'
+            + '</label>'
+            + '<label>Duration (minutes)'
+              + '<input type="number" name="durationMinutes" min="1" step="1" value="60" required>'
+            + '</label>'
+          + '</div>'
+          + '<div class="inline-error-msg" data-raise-wo-error hidden></div>'
+          + '<div class="form-actions">'
+            + '<button type="submit" class="ledger-btn">Raise work order</button>'
+            + '<button type="button" class="ledger-btn ledger-btn-ghost" data-raise-wo-cancel>Cancel</button>'
+          + '</div>'
+        + '</form>'
+      + '</div>';
+
     return ''
-      + '<div class="page-head"><h1>Day Sheet</h1><div class="sub">' + workOrders.length + ' work orders &middot; ' + dispatchList.length + ' visits planned</div></div>'
+      + '<div class="page-head"><h1>Day Sheet</h1><div class="sub">' + workOrders.length + ' work orders &middot; ' + dispatchedCount + ' visits planned</div></div>'
+      + controlsHtml
       + daySheets
       + '<div class="sheet">'
         + '<div class="sheet-title">Dispatch roster</div>'

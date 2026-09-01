@@ -1,8 +1,9 @@
-import { sum, type Pence } from '../shared/money.ts';
+import { sum, percentOf, type Pence } from '../shared/money.ts';
 import type { Invoice, LineItem } from '../db.ts';
 
 export interface InvoiceTotal {
   net: Pence;
+  vat: Pence;
   total: Pence;
 }
 
@@ -19,9 +20,18 @@ function legacySurcharge(invoice: Invoice): Pence {
   return 0;
 }
 
+// VAT policy (2026-09-01 assumption, pending Finance's real rules — see
+// jobs/JOB-A-vat.md): SERVICE lines (engineer work) carry 20% VAT; SUPPLY
+// lines (metered water) are zero-rated, as is the legacy paper surcharge.
+// VAT is computed once per invoice, on the SERVICE subtotal, rounded half up
+// to the penny.
 export function totalFor(invoice: Invoice): InvoiceTotal {
   const net = sum(invoice.lines.map(lineTotal)) + legacySurcharge(invoice);
-  return { net, total: net };
+  const serviceSubtotal = sum(
+    invoice.lines.filter((l) => l.kind === 'SERVICE').map(lineTotal),
+  );
+  const vat = percentOf(serviceSubtotal, 20);
+  return { net, vat, total: net + vat };
 }
 
 export function outstandingFor(customerId: string, all: Invoice[]): Pence {

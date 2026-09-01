@@ -1220,7 +1220,9 @@
     var original = submitBtn.textContent;
     submitBtn.textContent = 'Raising…';
     try {
-      await postJSON('/invoices', { customerId: state.customerId, lines: lines });
+      var custSel = form.querySelector('[data-raise-inv-customer]');
+      var customerId = custSel ? custSel.value : state.customerId;
+      await postJSON('/invoices', { customerId: customerId, lines: lines });
       render();
     } catch (err) {
       submitBtn.disabled = false;
@@ -1698,8 +1700,32 @@
         + '<td><span class="status '+(inv.paid?'paid':'unpaid')+'">'+(inv.paid?'PAID':'UNPAID')+'</span></td>'
         + '</tr>';
     }).join('');
+    var custOptions = customers.map(function(c){
+      return '<option value="'+esc(c.id)+'">'+esc(c.name)+' ('+esc(c.id)+')</option>';
+    }).join('');
     return ''
-      + '<div class="page-head"><h1>Invoice Register</h1><div class="sub">' + invoices.length + ' invoices</div></div>'
+      + '<div class="page-head"><h1>Invoice Register</h1><div class="sub">' + invoices.length + ' invoices</div>'
+        + '<button type="button" class="ledger-btn ledger-btn-sm" data-open-raise-inv>New invoice</button>'
+      + '</div>'
+      + '<div class="sheet" data-raise-inv-panel hidden>'
+        + '<div class="sheet-title">New invoice</div>'
+        + '<form data-raise-inv-form>'
+          + '<div class="form-grid"><label>Customer<select class="line-field" name="customer" data-raise-inv-customer required>' + custOptions + '</select></label></div>'
+          + '<div class="table-scroll"><table class="ledger">'
+            + '<thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price (pence)</th><th>Kind</th><th></th></tr></thead>'
+            + '<tbody data-inv-lines>' + invLineRowHtml() + '</tbody>'
+          + '</table></div>'
+          + '<div class="form-actions" style="margin:12px 0;">'
+            + '<button type="button" class="ledger-btn ledger-btn-sm ledger-btn-ghost" data-inv-add-line>Add line</button>'
+          + '</div>'
+          + '<div class="running-total-row"><span class="label">Running total</span><span class="value" data-inv-total>' + money(0) + '</span></div>'
+          + '<div class="inline-error-msg" data-raise-inv-error hidden></div>'
+          + '<div class="form-actions">'
+            + '<button type="submit" class="ledger-btn">Raise invoice</button>'
+            + '<button type="button" class="ledger-btn ledger-btn-ghost" data-raise-inv-cancel>Cancel</button>'
+          + '</div>'
+        + '</form>'
+      + '</div>'
       + '<div class="sheet">'
         + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Invoice</th><th>Customer</th><th>Issued</th><th class="num">Net</th><th class="num">VAT</th><th class="num">Total</th><th>Status</th></tr></thead>'
         + '<tbody>' + rows + '</tbody></table></div>'

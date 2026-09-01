@@ -505,6 +505,31 @@
   .form-grid select:focus, .form-grid input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
   .form-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
+  /* ---------- inline line-item editor (raise invoice) ---------- */
+  .line-field{
+    font-family:-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--rule-strong);
+    border-radius:3px;
+    padding:6px 8px;
+    width:100%;
+  }
+  .line-field:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .line-field-num{ width:90px; text-align:right; }
+  .running-total-row{
+    display:flex;
+    justify-content:flex-end;
+    align-items:baseline;
+    gap:14px;
+    margin:4px 0 14px 0;
+    padding-top:10px;
+    border-top:1px solid var(--rule);
+  }
+  .running-total-row .label{ font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); }
+  .running-total-row .value{ font-family:Cambria, Georgia, serif; font-size:19px; font-weight:700; color:var(--accent); }
+
   /* ================= motion layer (fx) =================
      Physical-paper motion language: sheets land, rows are written in,
      totals are ruled off, stamps slam. Transform/opacity only. */
@@ -853,6 +878,73 @@
         submitRaiseWorkOrder(form);
       });
     });
+
+    document.querySelectorAll('[data-open-new-cust]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var panel = document.querySelector('[data-new-cust-panel]');
+        if (panel) panel.hidden = !panel.hidden;
+      });
+    });
+    document.querySelectorAll('[data-new-cust-cancel]').forEach(function(btn){
+      btn.addEventListener('click', function(){ closeNewCustomer(); });
+    });
+    document.querySelectorAll('[data-new-cust-form]').forEach(function(form){
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        submitNewCustomer(form);
+      });
+    });
+
+    document.querySelectorAll('[data-open-amend-cust]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var panel = document.querySelector('[data-amend-cust-panel]');
+        if (panel) panel.hidden = !panel.hidden;
+      });
+    });
+    document.querySelectorAll('[data-amend-cust-cancel]').forEach(function(btn){
+      btn.addEventListener('click', function(){ closeAmendCustomer(); });
+    });
+    document.querySelectorAll('[data-amend-cust-form]').forEach(function(form){
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        submitAmendCustomer(form);
+      });
+    });
+
+    document.querySelectorAll('[data-open-raise-inv]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var panel = document.querySelector('[data-raise-inv-panel]');
+        if (panel) panel.hidden = !panel.hidden;
+      });
+    });
+    document.querySelectorAll('[data-raise-inv-cancel]').forEach(function(btn){
+      btn.addEventListener('click', function(){ closeRaiseInvoice(); });
+    });
+    document.querySelectorAll('[data-inv-add-line]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var tbody = document.querySelector('[data-inv-lines]');
+        if (tbody){ tbody.insertAdjacentHTML('beforeend', invLineRowHtml()); }
+        updateInvoiceTotal();
+      });
+    });
+    document.querySelectorAll('[data-inv-lines]').forEach(function(tbody){
+      tbody.addEventListener('click', function(ev){
+        var btn = ev.target.closest('[data-inv-line-remove]');
+        if (!btn) return;
+        var row = btn.closest('[data-inv-line-row]');
+        if (row && row.parentNode) row.parentNode.removeChild(row);
+        updateInvoiceTotal();
+      });
+      tbody.addEventListener('input', function(ev){
+        if (ev.target.matches('[data-inv-line-qty], [data-inv-line-unit]')) updateInvoiceTotal();
+      });
+    });
+    document.querySelectorAll('[data-raise-inv-form]').forEach(function(form){
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        submitRaiseInvoice(form);
+      });
+    });
   }
 
   function closeRaiseWorkOrder(){
@@ -862,6 +954,66 @@
     var wrap = document.querySelector('[data-raise-requires-other-wrap]');
     if (wrap) wrap.hidden = true;
     var errEl = document.querySelector('[data-raise-wo-error]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    if (panel) panel.hidden = true;
+  }
+
+  function closeNewCustomer(){
+    var panel = document.querySelector('[data-new-cust-panel]');
+    var form = document.querySelector('[data-new-cust-form]');
+    if (form) form.reset();
+    var errEl = document.querySelector('[data-new-cust-error]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    if (panel) panel.hidden = true;
+  }
+
+  function closeAmendCustomer(){
+    var panel = document.querySelector('[data-amend-cust-panel]');
+    var form = document.querySelector('[data-amend-cust-form]');
+    if (form) form.reset();
+    var errEl = document.querySelector('[data-amend-cust-error]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+    if (panel) panel.hidden = true;
+  }
+
+  // One empty line row: the starting state for a freshly opened/reset invoice panel.
+  function invLineRowHtml(){
+    return '<tr data-inv-line-row>'
+      + '<td><input type="text" class="line-field" data-inv-line-desc placeholder="Description" required></td>'
+      + '<td class="num"><input type="number" class="line-field line-field-num" data-inv-line-qty min="1" step="1" value="1" required></td>'
+      + '<td class="num"><input type="number" class="line-field line-field-num" data-inv-line-unit min="1" step="1" placeholder="e.g. 1250" required></td>'
+      + '<td><select class="line-field" data-inv-line-kind>'
+        + '<option value="SUPPLY">Supply</option>'
+        + '<option value="SERVICE">Service</option>'
+      + '</select></td>'
+      + '<td><button type="button" class="ledger-btn ledger-btn-sm ledger-btn-ghost" data-inv-line-remove>Remove</button></td>'
+    + '</tr>';
+  }
+
+  // Integer maths only: qty * unitPence per row, summed. Invalid/incomplete
+  // rows contribute zero rather than throwing, so typing mid-edit is calm.
+  function updateInvoiceTotal(){
+    var totalEl = document.querySelector('[data-inv-total]');
+    if (!totalEl) return;
+    var total = 0;
+    document.querySelectorAll('[data-inv-line-row]').forEach(function(row){
+      var qty = parseInt(row.querySelector('[data-inv-line-qty]').value, 10);
+      var unit = parseInt(row.querySelector('[data-inv-line-unit]').value, 10);
+      if (Number.isInteger(qty) && qty > 0 && Number.isInteger(unit) && unit > 0){
+        total += qty * unit;
+      }
+    });
+    totalEl.textContent = money(total);
+  }
+
+  function closeRaiseInvoice(){
+    var panel = document.querySelector('[data-raise-inv-panel]');
+    var form = document.querySelector('[data-raise-inv-form]');
+    if (form) form.reset();
+    var tbody = document.querySelector('[data-inv-lines]');
+    if (tbody) tbody.innerHTML = invLineRowHtml();
+    updateInvoiceTotal();
+    var errEl = document.querySelector('[data-raise-inv-error]');
     if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
     if (panel) panel.hidden = true;
   }
@@ -957,6 +1109,124 @@
     } catch (err) {
       submitBtn.disabled = false;
       if (cancelBtn) cancelBtn.disabled = false;
+      submitBtn.textContent = original;
+      errEl.textContent = (err && err.message) || 'Something went wrong.';
+      errEl.hidden = false;
+    }
+  }
+
+  async function submitNewCustomer(form){
+    var errEl = form.querySelector('[data-new-cust-error]');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var cancelBtn = form.querySelector('[data-new-cust-cancel]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+
+    var name = form.elements.name.value.trim();
+    var address = form.elements.address.value.trim();
+    var accountType = form.elements.accountType.value;
+    var vatRegistered = form.elements.vatRegistered.checked;
+
+    if (!name || !address || !accountType){
+      errEl.textContent = 'Fill in every field before creating the customer.';
+      errEl.hidden = false;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    var original = submitBtn.textContent;
+    submitBtn.textContent = 'Creating…';
+    try {
+      await postJSON('/customers', {
+        name: name,
+        address: address,
+        accountType: accountType,
+        vatRegistered: vatRegistered
+      });
+      render();
+    } catch (err) {
+      submitBtn.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      submitBtn.textContent = original;
+      errEl.textContent = (err && err.message) || 'Something went wrong.';
+      errEl.hidden = false;
+    }
+  }
+
+  async function submitAmendCustomer(form){
+    var errEl = form.querySelector('[data-amend-cust-error]');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var cancelBtn = form.querySelector('[data-amend-cust-cancel]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+
+    var name = form.elements.name.value.trim();
+    var address = form.elements.address.value.trim();
+
+    if (!name || !address){
+      errEl.textContent = 'Name and address cannot be empty.';
+      errEl.hidden = false;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    var original = submitBtn.textContent;
+    submitBtn.textContent = 'Saving…';
+    try {
+      await postJSON('/customers/'+encodeURIComponent(state.customerId)+'/update', { name: name, address: address });
+      render();
+    } catch (err) {
+      submitBtn.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      submitBtn.textContent = original;
+      errEl.textContent = (err && err.message) || 'Something went wrong.';
+      errEl.hidden = false;
+    }
+  }
+
+  async function submitRaiseInvoice(form){
+    var errEl = form.querySelector('[data-raise-inv-error]');
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var cancelBtn = form.querySelector('[data-raise-inv-cancel]');
+    var addBtn = form.querySelector('[data-inv-add-line]');
+    var removeBtns = form.querySelectorAll('[data-inv-line-remove]');
+    if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
+
+    var rows = form.querySelectorAll('[data-inv-line-row]');
+    var lines = [];
+    var allValid = true;
+    rows.forEach(function(row){
+      var description = row.querySelector('[data-inv-line-desc]').value.trim();
+      var quantity = Number(row.querySelector('[data-inv-line-qty]').value);
+      var unitPence = Number(row.querySelector('[data-inv-line-unit]').value);
+      var kind = row.querySelector('[data-inv-line-kind]').value;
+      if (!description || !Number.isInteger(quantity) || quantity <= 0 || !Number.isInteger(unitPence) || unitPence <= 0){
+        allValid = false;
+        return;
+      }
+      lines.push({ description: description, quantity: quantity, unitPence: unitPence, kind: kind });
+    });
+
+    if (!allValid || lines.length === 0){
+      errEl.textContent = 'Every line needs a description, a whole-number quantity, and a whole-number unit price in pence.';
+      errEl.hidden = false;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    if (addBtn) addBtn.disabled = true;
+    removeBtns.forEach(function(b){ b.disabled = true; });
+    var original = submitBtn.textContent;
+    submitBtn.textContent = 'Raising…';
+    try {
+      await postJSON('/invoices', { customerId: state.customerId, lines: lines });
+      render();
+    } catch (err) {
+      submitBtn.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      if (addBtn) addBtn.disabled = false;
+      removeBtns.forEach(function(b){ b.disabled = false; });
       submitBtn.textContent = original;
       errEl.textContent = (err && err.message) || 'Something went wrong.';
       errEl.hidden = false;
@@ -1262,7 +1532,34 @@
         + '</tr>';
     }).join('');
     return ''
-      + '<div class="page-head"><h1>Customer Ledger Index</h1><div class="sub">' + customers.length + ' accounts</div></div>'
+      + '<div class="page-head"><h1>Customer Ledger Index</h1>'
+        + '<div style="display:flex;align-items:baseline;gap:16px;">'
+          + '<div class="sub">' + customers.length + ' accounts</div>'
+          + '<button type="button" class="ledger-btn ledger-btn-sm" data-open-new-cust>New customer</button>'
+        + '</div>'
+      + '</div>'
+      + '<div class="sheet" data-new-cust-panel hidden>'
+        + '<div class="sheet-title">New customer</div>'
+        + '<form data-new-cust-form>'
+          + '<div class="form-grid">'
+            + '<label>Name<input type="text" name="name" required></label>'
+            + '<label>Address<input type="text" name="address" required></label>'
+            + '<label>Account type'
+              + '<select name="accountType" required>'
+                + '<option value="" disabled selected>Choose type&hellip;</option>'
+                + '<option value="DOMESTIC">Domestic</option>'
+                + '<option value="COMMERCIAL">Commercial</option>'
+              + '</select>'
+            + '</label>'
+            + '<label>VAT registered<input type="checkbox" name="vatRegistered"></label>'
+          + '</div>'
+          + '<div class="inline-error-msg" data-new-cust-error hidden></div>'
+          + '<div class="form-actions">'
+            + '<button type="submit" class="ledger-btn">Create customer</button>'
+            + '<button type="button" class="ledger-btn ledger-btn-ghost" data-new-cust-cancel>Cancel</button>'
+          + '</div>'
+        + '</form>'
+      + '</div>'
       + '<div class="sheet">'
         + '<div class="table-scroll"><table class="ledger"><thead><tr><th class="id">Account</th><th>Name</th><th>Address</th><th>Type</th><th class="num">Outstanding</th></tr></thead>'
         + '<tbody>' + rows + '</tbody></table></div>'
@@ -1313,6 +1610,42 @@
             + '<div class="amt'+(outstandingZero?' zero':'')+'"'+(typeof statement.totals.outstanding==='number'?' data-pence="'+statement.totals.outstanding+'"':'')+'>'+esc(customer.outstanding)+'</div>'
           + '</div>'
         + '</div>'
+        + '<div class="doc-action-row">'
+          + '<button type="button" class="ledger-btn ledger-btn-sm" data-open-amend-cust>Amend details</button>'
+          + '<button type="button" class="ledger-btn ledger-btn-sm" data-open-raise-inv>Raise invoice</button>'
+        + '</div>'
+      + '</div>'
+      + '<div class="sheet" data-amend-cust-panel hidden>'
+        + '<div class="sheet-title">Amend details</div>'
+        + '<form data-amend-cust-form>'
+          + '<div class="form-grid">'
+            + '<label>Name<input type="text" name="name" required value="'+esc(customer.name)+'"></label>'
+            + '<label>Address<input type="text" name="address" required value="'+esc(customer.address)+'"></label>'
+          + '</div>'
+          + '<div class="inline-error-msg" data-amend-cust-error hidden></div>'
+          + '<div class="form-actions">'
+            + '<button type="submit" class="ledger-btn">Save changes</button>'
+            + '<button type="button" class="ledger-btn ledger-btn-ghost" data-amend-cust-cancel>Cancel</button>'
+          + '</div>'
+        + '</form>'
+      + '</div>'
+      + '<div class="sheet" data-raise-inv-panel hidden>'
+        + '<div class="sheet-title">Raise invoice</div>'
+        + '<form data-raise-inv-form>'
+          + '<div class="table-scroll"><table class="ledger">'
+            + '<thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price (pence)</th><th>Kind</th><th></th></tr></thead>'
+            + '<tbody data-inv-lines>' + invLineRowHtml() + '</tbody>'
+          + '</table></div>'
+          + '<div class="form-actions" style="margin:12px 0;">'
+            + '<button type="button" class="ledger-btn ledger-btn-sm ledger-btn-ghost" data-inv-add-line>Add line</button>'
+          + '</div>'
+          + '<div class="running-total-row"><span class="label">Running total</span><span class="value" data-inv-total>' + money(0) + '</span></div>'
+          + '<div class="inline-error-msg" data-raise-inv-error hidden></div>'
+          + '<div class="form-actions">'
+            + '<button type="submit" class="ledger-btn">Raise invoice</button>'
+            + '<button type="button" class="ledger-btn ledger-btn-ghost" data-raise-inv-cancel>Cancel</button>'
+          + '</div>'
+        + '</form>'
       + '</div>'
       + '<div class="sheet">'
         + '<div class="sheet-title">Invoices on this account</div>'

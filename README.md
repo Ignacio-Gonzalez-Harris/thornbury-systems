@@ -12,13 +12,17 @@ npm test        # the suite
 npm start       # http://localhost:4310
 ```
 
+The web UI is served by the API itself at http://localhost:4310/app — no
+separate build or install.
+
 ## Layout
 
 - `src/invoices` billing. Totals, balances.
 - `src/scheduling` work orders, engineer dispatch, customer appointment windows.
 - `src/shared` money and dates. Both are used by both sides, so changes here reach further than they look.
 - `src/db.ts` the seed data. Stands in for the SQL Server tables.
-- `jobs/` the support queue. Four things waiting to be done.
+- `public/` the web UI, served at `/app`. One self-contained page, no build step.
+- `jobs/` the support queue.
 
 ## Notes from the team
 

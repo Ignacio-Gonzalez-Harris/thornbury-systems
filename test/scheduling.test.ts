@@ -94,3 +94,39 @@ test('dispatch plans an out-of-hours visit as a separate UK-local day even when 
     }
   }
 });
+
+test('dispatch does not send a second van to an address already DISPATCHED that day', () => {
+  // JOB B, the half that b2bb46e did not fix: Mrs Whitcombe's meter job went out
+  // at 08:00 and is DISPATCHED, so the next run through the queue must not plan
+  // the 08:30 leak job at the same house.
+  const whitcombeOrders = workOrders
+    .filter((order) => order.id === 'W-5001' || order.id === 'W-5002')
+    .map((order) => order.id === 'W-5001'
+      ? { ...order, status: 'DISPATCHED' as const, engineerId: 'E-01' }
+      : { ...order, address: '14 Ashfield Row, Bristol' });
+
+  assert.deepEqual(dispatch(whitcombeOrders), []);
+});
+
+test('dispatch does not send a second van to an address already visited that day', () => {
+  const doneThenQueued = workOrders
+    .filter((order) => order.id === 'W-5001' || order.id === 'W-5002')
+    .map((order) => order.id === 'W-5001'
+      ? { ...order, status: 'DONE' as const }
+      : order);
+
+  assert.deepEqual(dispatch(doneThenQueued), []);
+});
+
+test('a DISPATCHED order on another day does not block todays visit', () => {
+  const yesterdayThenToday = workOrders
+    .filter((order) => order.id === 'W-5001' || order.id === 'W-5002')
+    .map((order) => order.id === 'W-5001'
+      ? { ...order, status: 'DISPATCHED' as const, requestedAt: '2026-09-01T08:00:00Z' }
+      : order);
+
+  assert.deepEqual(
+    dispatch(yesterdayThenToday).map((assignment) => assignment.workOrderId),
+    ['W-5002'],
+  );
+});

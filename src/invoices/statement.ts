@@ -31,7 +31,7 @@ export function statementFor(customer: Customer, allInvoices: Invoice[]): Custom
       id: invoice.id,
       issued: invoice.issued,
       paid: invoice.paid,
-      ...totalFor(invoice),
+      ...totalFor(invoice, customer),
     }));
 
   return {

@@ -1,6 +1,7 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { server } from '../src/server.ts';
+import { customers, invoices } from '../src/db.ts';
 
 let baseUrl: string;
 
@@ -33,16 +34,16 @@ test('customer statement combines invoices and account totals', async () => {
         issued: '2026-07-01',
         paid: false,
         net: 245000,
-        vat: 3400,
-        total: 248400,
+        vat: 49000,
+        total: 294000,
       },
     ],
     totals: {
       net: 245000,
-      vat: 3400,
-      invoiced: 248400,
+      vat: 49000,
+      invoiced: 294000,
       paid: 0,
-      outstanding: 248400,
+      outstanding: 294000,
     },
   });
 });
@@ -62,4 +63,21 @@ test('customer statement rejects non-GET requests', async () => {
   assert.equal(response.status, 405);
   assert.equal(response.headers.get('allow'), 'GET');
   assert.deepEqual(await response.json(), { error: 'method not allowed' });
+});
+
+test('a handler failure returns 500 instead of hanging the response', async () => {
+  // Simulate a broken customerId reference: remove the customer an existing
+  // invoice points at, without touching the seed data on disk.
+  const invoice = invoices.find((i) => i.id === 'INV-9001')!;
+  const index = customers.findIndex((c) => c.id === invoice.customerId);
+  const [removed] = customers.splice(index, 1);
+  try {
+    const response = await fetch(`${baseUrl}/invoices/${invoice.id}`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: 'no such customer for invoice' });
+  } finally {
+    customers.splice(index, 0, removed);
+  }
 });

@@ -57,3 +57,40 @@ test('dispatch plans one visit for differently typed versions of an address', ()
     [{ workOrderId: 'W-5001', address: '  14 Ashfield   Row, Bristol  ' }],
   );
 });
+
+test('dispatch plans one visit when a comma and a full stop are the only difference', () => {
+  const punctuationOrders = workOrders.filter(
+    (order) => order.id === 'W-5001' || order.id === 'W-5002',
+  ).map((order) => order.id === 'W-5001'
+    ? { ...order, address: '14 Ashfield Row, Bristol' }
+    : { ...order, address: '14 Ashfield Row Bristol.' });
+
+  assert.equal(dispatch(punctuationOrders).length, 1);
+});
+
+test('dispatch still plans separate visits for genuinely different addresses', () => {
+  const distinctOrders = workOrders.filter(
+    (order) => order.id === 'W-5001' || order.id === 'W-5002',
+  ).map((order) => order.id === 'W-5001'
+    ? { ...order, address: '12 Bell Street, Thornbury' }
+    : { ...order, address: '12 Bell Steps, Thornbury' });
+
+  assert.equal(dispatch(distinctOrders).length, 2);
+});
+
+test('dispatch plans an out-of-hours visit as a separate UK-local day even when the server runs in UTC', () => {
+  const originalTimezone = process.env.TZ;
+  process.env.TZ = 'UTC';
+
+  try {
+    const plannedIds = dispatch(workOrders).map((assignment) => assignment.workOrderId);
+    assert.ok(plannedIds.includes('W-5003'), 'expected W-5003 to be planned');
+    assert.ok(plannedIds.includes('W-5006'), 'expected W-5006 to be planned');
+  } finally {
+    if (originalTimezone === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = originalTimezone;
+    }
+  }
+});

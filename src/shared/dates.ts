@@ -22,22 +22,33 @@ const UK_DATE_FORMAT = new Intl.DateTimeFormat('en-GB', {
   month: '2-digit',
   day: '2-digit',
 });
+const UK_WEEKDAY_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: UK_TIME_ZONE,
+  weekday: 'short',
+});
 
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+// The UK-local calendar day, not the UTC one.
 export function toDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const parts = UK_DATE_FORMAT.formatToParts(d);
+  const year = parts.find((part) => part.type === 'year')!.value;
+  const month = parts.find((part) => part.type === 'month')!.value;
+  const day = parts.find((part) => part.type === 'day')!.value;
+  return `${year}-${month}-${day}`;
 }
 
 export function isWorkingDay(d: Date): boolean {
-  const day = d.getDay();
-  if (day === 0 || day === 6) return false;
+  const weekday = UK_WEEKDAY_FORMAT.format(d);
+  if (weekday === 'Sat' || weekday === 'Sun') return false;
   return !BANK_HOLIDAYS_2026.includes(toDateKey(d));
 }
 
 export function addWorkingDays(from: Date, n: number): Date {
-  const d = new Date(from.getTime());
+  let d = new Date(from.getTime());
   let left = n;
   while (left > 0) {
-    d.setDate(d.getDate() + 1);
+    d = new Date(d.getTime() + ONE_DAY_IN_MS);
     if (isWorkingDay(d)) left--;
   }
   return d;

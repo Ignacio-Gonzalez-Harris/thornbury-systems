@@ -4,7 +4,13 @@
 // The two are not the same thing for half the year and this file is where that
 // keeps going wrong.
 
-export const BANK_HOLIDAYS_2026 = [
+// England and Wales bank holidays, as UK-local calendar days.
+// Deliberately not year-suffixed: the name would start lying the moment 2027 is
+// appended. The real fix is the gov.uk bank-holiday feed rather than a list we
+// have to remember to top up every December -- tracked as TB-02 in
+// jobs/BACKLOG.md. Until then test/dates.test.ts fails loudly if this list stops
+// covering the current year.
+export const BANK_HOLIDAYS = [
   '2026-01-01', '2026-04-03', '2026-04-06', '2026-05-04',
   '2026-05-25', '2026-08-31', '2026-12-25', '2026-12-28',
 ];
@@ -41,7 +47,7 @@ export function toDateKey(d: Date): string {
 export function isWorkingDay(d: Date): boolean {
   const weekday = UK_WEEKDAY_FORMAT.format(d);
   if (weekday === 'Sat' || weekday === 'Sun') return false;
-  return !BANK_HOLIDAYS_2026.includes(toDateKey(d));
+  return !BANK_HOLIDAYS.includes(toDateKey(d));
 }
 
 export function addWorkingDays(from: Date, n: number): Date {

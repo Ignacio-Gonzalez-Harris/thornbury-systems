@@ -41,14 +41,14 @@ test('statement orders invoices and separates paid from outstanding totals', () 
       address: '1 Test Road',
     },
     invoices: [
-      { id: 'INV-1', issued: '2026-04-01', paid: true, net: 200, vat: 0, total: 200 },
+      { id: 'INV-1', issued: '2026-04-01', paid: true, net: 200, vat: 40, total: 240 },
       { id: 'INV-2', issued: '2026-07-01', paid: false, net: 100, vat: 20, total: 120 },
     ],
     totals: {
       net: 300,
-      vat: 20,
-      invoiced: 320,
-      paid: 200,
+      vat: 60,
+      invoiced: 360,
+      paid: 240,
       outstanding: 120,
     },
   });

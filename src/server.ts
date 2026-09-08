@@ -15,6 +15,15 @@ function json(res: import('node:http').ServerResponse, status: number, body: unk
 }
 
 export const server = createServer((req, res) => {
+  try {
+    handle(req, res);
+  } catch (error) {
+    console.error(error);
+    json(res, 500, { error: 'internal error' });
+  }
+});
+
+function handle(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) {
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
   const parts = url.pathname.split('/').filter(Boolean);
 
@@ -65,7 +74,9 @@ export const server = createServer((req, res) => {
   if (parts[0] === 'invoices' && parts.length === 2) {
     const invoice = invoices.find((i) => i.id === parts[1]);
     if (!invoice) return json(res, 404, { error: 'no such invoice' });
-    const totals = totalFor(invoice);
+    const customer = customers.find((c) => c.id === invoice.customerId);
+    if (!customer) return json(res, 500, { error: 'no such customer for invoice' });
+    const totals = totalFor(invoice, customer);
     return json(res, 200, { ...invoice, ...totals, display: format(totals.total) });
   }
 
@@ -82,7 +93,7 @@ export const server = createServer((req, res) => {
   }
 
   return json(res, 404, { error: 'no such route', path: url.pathname });
-});
+}
 
 if (process.argv[1]?.endsWith('server.ts')) {
   server.listen(PORT, () => {

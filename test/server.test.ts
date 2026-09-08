@@ -1,7 +1,7 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { server } from '../src/server.ts';
-import { customers, invoices } from '../src/db.ts';
+import { customers, invoices, workOrders } from '../src/db.ts';
 
 let baseUrl: string;
 
@@ -79,5 +79,54 @@ test('a handler failure returns 500 instead of hanging the response', async () =
     assert.deepEqual(await response.json(), { error: 'no such customer for invoice' });
   } finally {
     customers.splice(index, 0, removed);
+  }
+});
+
+test('GET /dispatch sends no second van to an address already being visited', async () => {
+  // JOB B, pinned at its only production call site. The three regression tests in
+  // test/scheduling.test.ts call dispatch() with hand-built arrays, so nothing
+  // asserted what src/server.ts actually passes it: dispatch() builds its
+  // "already visiting" list from the orders whose status is NOT 'QUEUED', so a
+  // caller that pre-filtered to QUEUED would restore the original duplicate-van
+  // bug with the whole suite still green.
+  //
+  // Mrs Whitcombe, exactly as Marcus reports it: a meter job already DISPATCHED
+  // to E-01 at 08:00, and a leak job still QUEUED at 08:30 at the same house with
+  // no punctuation trickery at all. Same mutate-and-restore idiom as the 500 test
+  // above — the seed arrays are shared with every other test in this file.
+  const dispatched = workOrders.find((order) => order.id === 'W-5001')!;
+  const queued = workOrders.find((order) => order.id === 'W-5002')!;
+  const before = {
+    status: dispatched.status,
+    engineerId: dispatched.engineerId,
+    address: queued.address,
+  };
+
+  dispatched.status = 'DISPATCHED';
+  dispatched.engineerId = 'E-01';
+  queued.address = dispatched.address;
+
+  try {
+    const response = await fetch(`${baseUrl}/dispatch`);
+    assert.equal(response.status, 200);
+    const planned: { workOrderId: string; engineerId: string; address: string }[] =
+      await response.json();
+
+    assert.deepEqual(
+      planned.filter((assignment) => assignment.address === dispatched.address),
+      [],
+      'a second van was planned for an address already being visited',
+    );
+    // The bug double-booked the engineer as well as the customer, so name that too.
+    assert.equal(planned.some((assignment) => assignment.workOrderId === 'W-5002'), false);
+
+    // And the guard must not have swallowed the rest of the day: an unrelated
+    // address still gets planned, so a route that returned [] would fail here.
+    assert.equal(planned.some((assignment) => assignment.workOrderId === 'W-5004'), true);
+  } finally {
+    dispatched.status = before.status;
+    if (before.engineerId === undefined) delete dispatched.engineerId;
+    else dispatched.engineerId = before.engineerId;
+    queued.address = before.address;
   }
 });

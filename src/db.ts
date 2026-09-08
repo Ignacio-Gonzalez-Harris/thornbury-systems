@@ -1,5 +1,13 @@
 // In-memory store. The real product is on SQL Server; this is the slice the web
 // front end was built against while the migration stalled.
+//
+// The arrays below are the seed data AND the live tables: everything reads them
+// directly. When the process is running as the API server they are loaded from,
+// and flushed back to, a JSON snapshot on disk (see store.ts) so writes survive
+// a restart. Under the tests there is no file and the seed data below is what
+// every run starts from.
+
+import { load, save, storePath } from './store.ts';
 
 export type CustomerId = string;
 
@@ -103,3 +111,41 @@ export const workOrders: WorkOrder[] = [
   // Out of hours. Trelawney run a night shift and asked for the backflow test after close.
   { id: 'W-5006', customerId: 'C-1002', address: 'Unit 6, Severnside Park, Avonmouth', requires: 'BACKFLOW', requestedAt: '2026-09-02T23:30:00Z', durationMinutes: 45, status: 'QUEUED' },
 ];
+
+// --- persistence ------------------------------------------------------------
+
+const STORE_PATH = storePath();
+
+// Arrays are replaced in place. Every other module imported these bindings at
+// boot and holds the same array reference, so reassigning them would leave the
+// rest of the codebase reading the seed data forever.
+function replaceContents<T>(target: T[], next: unknown[]): void {
+  target.length = 0;
+  // A plain loop, not `push(...next)`: spreading passes every row as a separate
+  // argument, and V8 throws RangeError past roughly 100k of them. That would
+  // land at module-import time, before the server listens — a boot crash whose
+  // stack points at an array push instead of at the snapshot that caused it.
+  for (const row of next) {
+    target.push(row as T);
+  }
+}
+
+if (STORE_PATH) {
+  const snapshot = load(STORE_PATH);
+  if (snapshot) {
+    replaceContents(customers, snapshot.customers);
+    replaceContents(invoices, snapshot.invoices);
+    replaceContents(engineers, snapshot.engineers);
+    replaceContents(workOrders, snapshot.workOrders);
+  } else {
+    // First boot: lay the seed data down so the file exists and is inspectable.
+    save(STORE_PATH, { customers, invoices, engineers, workOrders });
+  }
+}
+
+// Called after every successful write. A no-op when persistence is off, which
+// is why the write paths can call it unconditionally.
+export function persist(): void {
+  if (!STORE_PATH) return;
+  save(STORE_PATH, { customers, invoices, engineers, workOrders });
+}

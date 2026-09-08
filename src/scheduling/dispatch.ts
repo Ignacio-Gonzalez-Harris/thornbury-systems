@@ -28,23 +28,40 @@ function canonicalAddress(address: string): string {
     .trim();
 }
 
+// A van at an address on a UK-local day, whether it was planned in this call or
+// committed by an earlier one.
+interface Visit {
+  address: string;
+  when: Date;
+}
+
 // One visit per address per day. Sending two vans to the same house on the same
 // morning is the single biggest source of complaints on the support queue.
-function alreadyVisiting(address: string, when: Date, planned: Assignment[]): boolean {
-  return planned.some(
-    (a) => canonicalAddress(a.address) === canonicalAddress(address)
-      && sameDay(new Date(a.startsAt), when),
+function alreadyVisiting(address: string, when: Date, visits: Visit[]): boolean {
+  return visits.some(
+    (visit) => canonicalAddress(visit.address) === canonicalAddress(address)
+      && sameDay(visit.when, when),
   );
 }
 
 export function dispatch(orders: WorkOrder[]): Assignment[] {
   const planned: Assignment[] = [];
 
+  // The duplicate check used to compare only against what THIS call planned, so a
+  // job already DISPATCHED to a house this morning was invisible to it and the
+  // dispatcher's next run sent a second van. Real dispatchers run this repeatedly
+  // through the day, which is why Marcus sees it most weeks. Every order that is
+  // no longer QUEUED is a visit that has already been committed for that day, so
+  // it counts against the address exactly like a freshly planned one.
+  const visits: Visit[] = orders
+    .filter((order) => order.status !== 'QUEUED')
+    .map((order) => ({ address: order.address, when: new Date(order.requestedAt) }));
+
   for (const order of orders) {
     if (order.status !== 'QUEUED') continue;
     const when = new Date(order.requestedAt);
 
-    if (alreadyVisiting(order.address, when, planned)) continue;
+    if (alreadyVisiting(order.address, when, visits)) continue;
 
     const engineer = engineers.find((e) => canDo(e, order));
     if (!engineer) continue;
@@ -55,6 +72,7 @@ export function dispatch(orders: WorkOrder[]): Assignment[] {
       address: order.address,
       startsAt: order.requestedAt,
     });
+    visits.push({ address: order.address, when });
   }
 
   return planned;

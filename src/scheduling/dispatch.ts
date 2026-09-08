@@ -12,8 +12,20 @@ function canDo(engineer: Engineer, order: WorkOrder): boolean {
   return engineer.skills.includes(order.requires);
 }
 
+// Addresses are typed in by whoever takes the call, so the same house shows up
+// with commas, full stops and other stray punctuation depending on who answered.
+// Treat any run of punctuation as a word boundary (not a letter/digit to strip),
+// so it can't merge two words that were only ever separated by a comma with no
+// following space. Deliberately does NOT touch letters or digits: street-type
+// abbreviations (Road/Rd, St/Steps) and house-number suffixes (14 vs 14a) must
+// stay distinct, or two different houses would collapse into one visit.
 function canonicalAddress(address: string): string {
-  return address.trim().replace(/\s+/g, ' ').toLowerCase();
+  return address
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // One visit per address per day. Sending two vans to the same house on the same
